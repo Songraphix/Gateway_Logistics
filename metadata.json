@@ -1,0 +1,6 @@
+{
+  "name": "Gateway Logistics & Services",
+  "description": "Sleek, high-performance logistics, manpower, and mining supply operations website for Gateway Logistics & Services (SL) Ltd.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
