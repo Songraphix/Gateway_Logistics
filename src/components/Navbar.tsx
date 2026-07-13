@@ -410,7 +410,7 @@ export default function Navbar({ currentPage, onNavigate, theme, toggleTheme }: 
             ? 4 
             : currentPage === 'contact' 
             ? 2 
-            : currentPage === 'news' 
+            : currentPage === 'about' 
             ? 3 
             : ['services', 'mining', 'manpower'].includes(currentPage) 
             ? 1 
@@ -507,11 +507,11 @@ export default function Navbar({ currentPage, onNavigate, theme, toggleTheme }: 
                     },
                   },
                   {
-                    id: 'news' as const,
-                    label: language === 'en' ? 'News' : 'Actualités',
-                    icon: FileText,
+                    id: 'about' as const,
+                    label: language === 'en' ? 'About' : 'À Propos',
+                    icon: Shield,
                     onClick: () => {
-                      handleNavClick('news');
+                      handleNavClick('about');
                       setMobileMenuOpen(false);
                     },
                   },
