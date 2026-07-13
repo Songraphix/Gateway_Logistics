@@ -97,16 +97,16 @@ export default function Navbar({ currentPage, onNavigate, theme, toggleTheme }: 
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            className="lg:hidden fixed top-4 left-4 z-50"
+            className="fixed top-4 left-4 z-50"
           >
             <button
               onClick={toggleMinimize}
-              className="flex items-center space-x-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/80 dark:border-white/10 p-1.5 rounded-full shadow-lg cursor-pointer hover:scale-105 active:scale-95 transition-all duration-200"
+              className="flex items-center space-x-1.5 bg-white/95 dark:bg-slate-900/95 lg:bg-black/50 lg:text-white lg:hover:bg-black/75 backdrop-blur-md border border-slate-200/80 dark:border-white/10 lg:border-white/20 p-1.5 rounded-full shadow-lg cursor-pointer hover:scale-105 active:scale-95 transition-all duration-200"
               title="Expand Top Bar"
             >
               <Logo showText={false} minimized={true} className="h-7 w-7" />
-              <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 pr-1.5">
-                {language === 'en' ? 'Tap to Expand' : 'Agrandir'}
+              <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 lg:text-white/90 pr-1.5">
+                {language === 'en' ? 'Expand Menu' : 'Agrandir'}
               </span>
             </button>
           </motion.div>
@@ -115,7 +115,7 @@ export default function Navbar({ currentPage, onNavigate, theme, toggleTheme }: 
 
       <header className={`fixed top-0 left-0 right-0 z-50 p-4 transition-all duration-300 ${
         showHeader ? 'translate-y-0 opacity-100' : '-translate-y-24 opacity-0 pointer-events-none lg:translate-y-0 lg:opacity-100 lg:pointer-events-auto'
-      } ${isMinimized ? 'hidden lg:block' : 'block'}`}>
+      } ${isMinimized ? 'hidden' : 'block'}`}>
         {/* 2.1 Utility Bar - Hidden when scrolled */}
         <div className={`hidden lg:block rounded-full border py-1.5 px-6 text-xs shadow-sm transition-all duration-300 max-w-7xl mx-auto mb-2 bg-black/30 backdrop-blur-xl border-white/10 text-white ${
           isScrolled ? 'h-0 py-0 overflow-hidden opacity-0 mb-0' : 'opacity-100'
@@ -378,14 +378,14 @@ export default function Navbar({ currentPage, onNavigate, theme, toggleTheme }: 
                 {theme === 'dark' ? <Sun className="h-4 w-4 text-brand-gold animate-pulse-slow" /> : <Moon className="h-4 w-4 text-white" />}
               </button>
 
-              {/* Mobile Minimize Toggle Button */}
+              {/* Minimize Toggle Button */}
               <button
                 onClick={toggleMinimize}
-                className="lg:hidden flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 rounded-full border border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5 cursor-pointer transition-all duration-200 shrink-0"
+                className="flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 rounded-full border border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5 lg:border-white/10 lg:text-white/70 lg:hover:bg-white/10 cursor-pointer transition-all duration-200 shrink-0"
                 title="Minimize Top Bar"
                 aria-label="Minimize top bar"
               >
-                <ChevronDown className="h-4 w-4 rotate-180 text-slate-700 dark:text-slate-200" />
+                <ChevronDown className="h-4 w-4 rotate-180 text-slate-700 dark:text-slate-200 lg:text-white/70" />
               </button>
 
               {/* Primary CTA Consultation Button */}
