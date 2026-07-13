@@ -3,11 +3,12 @@ import { Page, ServiceItem, FeatureItem, WorkflowStep } from '../types';
 import { useData } from '../DataContext';
 import { 
   Ship, Plane, Truck, FileText, Database, ShieldCheck, 
-  ArrowRight, Shield, Users, Clock, Cpu, Award, Zap, ChevronRight, ChevronLeft, Star, Quote
+  ArrowRight, Shield, Users, Clock, Cpu, Award, Zap, ChevronRight, ChevronLeft, Star, Quote, ChevronDown
 } from 'lucide-react';
 import NetworkGraphic from './NetworkGraphic';
 import { useLanguage } from '../LanguageContext';
 import { motion } from 'motion/react';
+import { useMobileScrollExpand } from '../hooks/useMobileScrollExpand';
 
 const fadeInUp = {
   initial: { opacity: 0, y: 30 },
@@ -33,6 +34,115 @@ const staggerItem = {
 
 interface HomeViewProps {
   onNavigate: (page: Page) => void;
+}
+
+// ---- Mobile-expandable Feature Card (used in "Why Choose Us") ----
+function MobileFeatureCard({ translatedFeature, idx, style, iconName, renderIcon }: {
+  translatedFeature: any; idx: number; style: any; iconName: string;
+  renderIcon: (name: string, cls?: string) => React.ReactNode;
+}) {
+  const { ref, expanded, toggle } = useMobileScrollExpand(0.55);
+  return (
+    <motion.div
+      ref={ref}
+      variants={staggerItem}
+      whileHover={{ y: -6, transition: { duration: 0.2 } }}
+      onClick={toggle}
+      className={`group rounded-3xl p-8 pb-10 flex flex-col cursor-pointer relative ${style.cardClass} shadow-sm hover:shadow-xl transition-all duration-300 ease-out`}
+    >
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className={`p-2.5 rounded-xl flex items-center justify-center transition-colors duration-300 ${style.iconBgClass} ${style.iconClass}`}>
+              {renderIcon(iconName, "h-6 w-6")}
+            </div>
+            <span className="font-mono text-[10px] font-extrabold tracking-widest text-slate-400 dark:text-slate-500 group-hover:text-white/70 uppercase transition-colors duration-300">
+              CRITERIA 0{idx + 1}
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="font-display text-base font-bold text-brand-navy dark:text-white group-hover:text-white transition-colors duration-300">
+              {translatedFeature.title}
+            </h3>
+            {/* Desktop: hover-expand | Mobile: scroll/tap-expand (collapsed by default) */}
+            <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'} lg:grid-rows-[0fr] lg:group-hover:grid-rows-[1fr]`}>
+              <div className="min-h-0 overflow-hidden">
+                <p className={`text-xs leading-relaxed mt-2 transition-all duration-300 delay-75 ${expanded ? 'opacity-100' : 'opacity-0'} lg:opacity-0 lg:group-hover:opacity-100 ${style.textClass}`}>
+                  {translatedFeature.desc}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {translatedFeature.bullets && (
+          <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'} lg:grid-rows-[0fr] lg:group-hover:grid-rows-[1fr]`}>
+            <div className="min-h-0 overflow-hidden">
+              <ul className={`space-y-1 mt-4 pt-4 border-t border-current/10 text-[10px] font-mono tracking-wide transition-all duration-300 delay-150 ${expanded ? 'opacity-100' : 'opacity-0'} lg:opacity-0 lg:group-hover:opacity-100 ${style.bulletClass}`}>
+                {translatedFeature.bullets.map((b: string, i: number) => (
+                  <li key={i} className="flex items-center space-x-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${style.dotColor}`} />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile-only chevron toggle */}
+      <div className={`absolute bottom-2.5 right-3 lg:hidden flex items-center justify-center w-6 h-6 rounded-full bg-black/5 dark:bg-white/10 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}>
+        <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-white/70" />
+      </div>
+    </motion.div>
+  );
+}
+
+// ---- Mobile-expandable Workflow Card (used in "How We Execute") ----
+function MobileWorkflowCard({ w, translatedWorkflow, style }: {
+  w: any; translatedWorkflow: any; style: any;
+}) {
+  const { ref, expanded, toggle } = useMobileScrollExpand(0.5);
+  return (
+    <div
+      ref={ref}
+      onClick={toggle}
+      className={`group relative overflow-hidden rounded-3xl transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] cursor-pointer flex-1 lg:hover:flex-[2.5] shadow-sm hover:shadow-2xl ${style.cardClass}`}
+    >
+      <div className="relative lg:absolute lg:inset-0 p-8 flex flex-col justify-start min-w-[280px]">
+        <div className="flex items-center justify-between mb-8">
+          <span className={`font-display text-4xl font-black tracking-tight opacity-90 ${style.numberClass}`}>
+            {w.stepNumber}
+          </span>
+          <div className="flex items-center gap-2">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${style.iconClass}`}>
+              <Zap className="h-4 w-4" />
+            </div>
+            {/* Mobile-only chevron */}
+            <div className={`lg:hidden flex items-center justify-center w-6 h-6 rounded-full bg-white/20 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}>
+              <ChevronDown className="w-3.5 h-3.5 text-white/80" />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="font-display text-lg lg:text-xl font-extrabold leading-tight">
+            {translatedWorkflow.title}
+          </h3>
+
+          <div className={`grid transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] ${expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'} lg:grid-rows-[0fr] lg:group-hover:grid-rows-[1fr]`}>
+            <div className="min-h-0 overflow-hidden">
+              <p className={`text-xs lg:text-sm leading-relaxed mt-2 transition-opacity duration-500 delay-100 ${expanded ? 'opacity-100' : 'opacity-0'} lg:opacity-0 lg:group-hover:opacity-100 ${style.textClass}`}>
+                {translatedWorkflow.desc}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function HomeView({ onNavigate }: HomeViewProps) {
@@ -398,55 +508,14 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
               const style = cardStyles[idx];
 
               return (
-                <motion.div 
+                <MobileFeatureCard
                   key={f.id}
-                  variants={staggerItem}
-                  whileHover={{ y: -6, transition: { duration: 0.2 } }}
-                  className={`group rounded-3xl p-8 flex flex-col cursor-pointer ${style.cardClass} shadow-sm hover:shadow-xl transition-all duration-300 ease-out`}
-                >
-                  
-                  <div className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className={`p-2.5 rounded-xl flex items-center justify-center transition-colors duration-300 ${style.iconBgClass} ${style.iconClass}`}>
-                        {renderIcon(f.iconName, "h-6 w-6")}
-                      </div>
-                      <span className="font-mono text-[10px] font-extrabold tracking-widest text-slate-400 dark:text-slate-500 group-hover:text-white/70 uppercase transition-colors duration-300">
-                        CRITERIA 0{idx + 1}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h3 className="font-display text-base font-bold text-brand-navy dark:text-white group-hover:text-white transition-colors duration-300">
-                        {translatedFeature.title}
-                      </h3>
-                      <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 ease-out">
-                        <div className="min-h-0 overflow-hidden">
-                          <p className={`text-xs leading-relaxed mt-2 opacity-0 group-hover:opacity-100 transition-all duration-300 delay-75 ${style.textClass}`}>
-                            {translatedFeature.desc}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Render inline bullets */}
-                  {translatedFeature.bullets && (
-                    <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 ease-out">
-                      <div className="min-h-0 overflow-hidden">
-                        <ul className={`space-y-1 mt-4 pt-4 border-t border-current/10 text-[10px] font-mono tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-300 delay-150 ${style.bulletClass}`}>
-                      {translatedFeature.bullets.map((b, i) => (
-                        <li key={i} className="flex items-center space-x-1.5">
-                          <span className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${style.dotColor}`} />
-                          <span>{b}</span>
-                        </li>
-                      ))}
-                        </ul>
-                      </div>
-                    </div>
-                  )}
-                  </div>
-                </motion.div>
+                  translatedFeature={translatedFeature}
+                  idx={idx}
+                  style={style}
+                  iconName={f.iconName}
+                  renderIcon={renderIcon}
+                />
               );
             })}
           </motion.div>
@@ -496,7 +565,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
             </p>
           </div>
 
-          <div className="flex flex-col lg:flex-row h-[420px] lg:h-[350px] w-full gap-4 mt-8 relative z-10">
+          <div className="flex flex-col lg:flex-row h-auto lg:h-[350px] w-full gap-4 mt-8 relative z-10">
             {workflowSteps.map((w, idx) => {
               const translatedWorkflow = translateWorkflow(w);
               const cardStyles = [
@@ -522,35 +591,12 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
               const style = cardStyles[idx % cardStyles.length];
 
               return (
-                <div 
+                <MobileWorkflowCard
                   key={w.stepNumber}
-                  className={`group relative overflow-hidden rounded-3xl transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] cursor-pointer flex-1 lg:hover:flex-[2.5] shadow-sm hover:shadow-2xl ${style.cardClass}`}
-                >
-                  <div className="absolute inset-0 p-8 flex flex-col justify-start min-w-[280px]">
-                    <div className="flex items-center justify-between mb-8">
-                      <span className={`font-display text-4xl font-black tracking-tight opacity-90 ${style.numberClass}`}>
-                        {w.stepNumber}
-                      </span>
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-full ${style.iconClass}`}>
-                        <Zap className="h-4 w-4" />
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      <h3 className="font-display text-lg lg:text-xl font-extrabold leading-tight">
-                        {translatedWorkflow.title}
-                      </h3>
-                      
-                      <div className="grid grid-rows-[0fr] lg:group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]">
-                        <div className="min-h-0 overflow-hidden">
-                          <p className={`text-xs lg:text-sm leading-relaxed mt-2 opacity-0 lg:group-hover:opacity-100 transition-opacity duration-500 delay-100 ${style.textClass}`}>
-                            {translatedWorkflow.desc}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  w={w}
+                  translatedWorkflow={translatedWorkflow}
+                  style={style}
+                />
               );
             })}
           </div>

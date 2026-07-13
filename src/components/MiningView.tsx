@@ -4,10 +4,11 @@ import { MINING_SOLUTIONS } from '../data';
 import { useLanguage } from '../LanguageContext';
 import { 
   MapPin, Bus, Flame, Wrench, Home, ShieldAlert, BadgeCheck, 
-  ArrowRight, Award, Lightbulb, Workflow, HelpCircle 
+  ArrowRight, Award, Lightbulb, Workflow, HelpCircle, ChevronDown 
 } from 'lucide-react';
 import NetworkGraphic from './NetworkGraphic';
 import { motion } from 'motion/react';
+import { useMobileScrollExpand } from '../hooks/useMobileScrollExpand';
 
 const fadeInUp = {
   initial: { opacity: 0, y: 30 },
@@ -35,6 +36,62 @@ interface MiningViewProps {
   onNavigate: (page: Page) => void;
 }
 
+// ---- Mobile-expandable Mining Solution Card ----
+function MobileMiningCard({ sol, translated, idx, style, renderIcon, language }: {
+  sol: any; translated: any; idx: number; style: any;
+  renderIcon: (name: string, cls?: string) => React.ReactNode;
+  language: string;
+}) {
+  const { ref, expanded, toggle } = useMobileScrollExpand(0.55);
+  return (
+    <motion.div
+      ref={ref}
+      key={sol.id}
+      variants={{
+        initial: { opacity: 0, y: 20 },
+        whileInView: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } }
+      }}
+      whileHover={{ y: -6, transition: { duration: 0.2 } }}
+      onClick={toggle}
+      className={`group mobile-expand-card rounded-3xl p-8 pb-10 flex flex-col justify-between space-y-6 shadow-sm hover:shadow-xl transition-all duration-300 ease-out cursor-pointer relative ${style.cardClass}`}
+    >
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className={`p-2.5 rounded-xl flex items-center justify-center transition-colors duration-300 ${style.iconBgClass} ${style.iconClass}`}>
+            {renderIcon(sol.iconName, 'h-6 w-6')}
+          </div>
+          <span className="font-mono text-[10px] font-extrabold tracking-widest text-slate-400 dark:text-slate-500 group-hover:text-white/70 uppercase transition-colors duration-300">
+            {language === 'en' ? 'SOLUTION' : 'SOLUTION'} 0{idx + 1}
+          </span>
+        </div>
+
+        <div className="space-y-2">
+          <h3 className="font-display text-base font-bold text-brand-navy dark:text-white group-hover:text-white transition-colors duration-300">
+            {translated.title}
+          </h3>
+          <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr] lg:grid-rows-[0fr]'} lg:group-hover:grid-rows-[1fr]`}>
+            <div className="min-h-0 overflow-hidden">
+              <p className={`text-xs leading-relaxed mt-2 opacity-0 ${expanded ? '!opacity-100' : ''} group-hover:opacity-100 transition-all duration-300 delay-75 ${style.textClass}`}>
+                {translated.desc}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-current/10 flex items-center justify-between text-[11px] font-mono group-hover:text-white/90 transition-colors duration-500">
+        <span>HSE Code:</span>
+        <span className="font-bold">{language === 'en' ? '100% Zero-Harm Vetted' : 'Évalué 100% Zéro Dommage'}</span>
+      </div>
+
+      {/* Mobile-only expand chevron */}
+      <div className={`absolute bottom-14 right-3 lg:hidden flex items-center justify-center w-6 h-6 rounded-full bg-black/5 dark:bg-white/10 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}>
+        <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-white/70" />
+      </div>
+    </motion.div>
+  );
+}
+
 export default function MiningView({ onNavigate }: MiningViewProps) {
   const { language, translateFeature } = useLanguage();
   
@@ -48,6 +105,21 @@ export default function MiningView({ onNavigate }: MiningViewProps) {
       default: return <Workflow className={className} />;
     }
   };
+
+  React.useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      if (window.innerWidth >= 1024) return;
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('scroll-active');
+        } else {
+          entry.target.classList.remove('scroll-active');
+        }
+      });
+    }, { threshold: 0.5 });
+    document.querySelectorAll('.mobile-expand-card').forEach(card => observer.observe(card));
+    return () => observer.disconnect();
+  }, [language]);
 
   return (
     <div id="mining-solutions-view" className="space-y-0 text-slate-800 dark:text-slate-100 transition-colors duration-300">
@@ -155,41 +227,15 @@ export default function MiningView({ onNavigate }: MiningViewProps) {
               const style = cardStyles[idx % cardStyles.length];
 
               return (
-                <motion.div 
+                <MobileMiningCard
                   key={sol.id}
-                  variants={staggerItem}
-                  whileHover={{ y: -6, transition: { duration: 0.2 } }}
-                  className={`group rounded-3xl p-8 flex flex-col justify-between space-y-6 shadow-sm hover:shadow-xl transition-all duration-300 ease-out cursor-pointer ${style.cardClass}`}
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className={`p-2.5 rounded-xl flex items-center justify-center transition-colors duration-300 ${style.iconBgClass} ${style.iconClass}`}>
-                        {renderIcon(sol.iconName, "h-6 w-6")}
-                      </div>
-                      <span className="font-mono text-[10px] font-extrabold tracking-widest text-slate-400 dark:text-slate-500 group-hover:text-white/70 uppercase transition-colors duration-300">
-                        {language === 'en' ? 'SOLUTION' : 'SOLUTION'} 0{idx + 1}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h3 className="font-display text-base font-bold text-brand-navy dark:text-white group-hover:text-white transition-colors duration-300">
-                        {translated.title}
-                      </h3>
-                      <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 ease-out">
-                        <div className="min-h-0 overflow-hidden">
-                          <p className={`text-xs leading-relaxed mt-2 opacity-0 group-hover:opacity-100 transition-all duration-300 delay-75 ${style.textClass}`}>
-                            {translated.desc}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-current/10 flex items-center justify-between text-[11px] font-mono group-hover:text-white/90 transition-colors duration-500">
-                    <span>HSE Code:</span>
-                    <span className="font-bold">{language === 'en' ? '100% Zero-Harm Vetted' : 'Évalué 100% Zéro Dommage'}</span>
-                  </div>
-                </motion.div>
+                  sol={sol}
+                  translated={translated}
+                  idx={idx}
+                  style={style}
+                  renderIcon={renderIcon}
+                  language={language}
+                />
               );
             })}
           </motion.div>

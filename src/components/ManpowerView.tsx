@@ -4,7 +4,7 @@ import { MANPOWER_ROLES, WORKFLOW_STEPS } from '../data';
 import { useLanguage } from '../LanguageContext';
 import { 
   Truck, Shield, Users, BadgeCheck, ClipboardCheck, ArrowRight, 
-  Compass, Hammer, Package, ShieldAlert, HeartHandshake, CheckCircle 
+  Compass, Hammer, Package, ShieldAlert, HeartHandshake, CheckCircle, ChevronDown 
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -32,6 +32,98 @@ const staggerItem = {
 
 interface ManpowerViewProps {
   onNavigate: (page: Page) => void;
+}
+
+// ---- Mobile-expandable Manpower Role Card ----
+function MobileManpowerCard({ role, translated, idx, style, renderIcon, language }: {
+  role: any; translated: any; idx: number; style: any;
+  renderIcon: (name: string, cls?: string) => React.ReactNode;
+  language: string;
+}) {
+  const [expanded, setExpanded] = React.useState(false);
+  return (
+    <motion.div
+      variants={{
+        initial: { opacity: 0, y: 20 },
+        whileInView: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } }
+      }}
+      whileHover={{ y: -6, transition: { duration: 0.2 } }}
+      onClick={() => setExpanded(e => !e)}
+      className={`group rounded-2xl p-6 pb-10 shadow-sm hover:shadow-xl transition-all duration-300 ease-out flex flex-col justify-between space-y-4 cursor-pointer relative ${style.cardClass}`}
+    >
+      <div className="space-y-3">
+        <div className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-300 ${style.iconBgClass} ${style.iconClass}`}>
+          {renderIcon(role.icon, 'h-5 w-5')}
+        </div>
+        <h3 className="font-display text-sm font-bold text-brand-navy dark:text-white group-hover:text-white transition-colors duration-300">
+          {translated.title}
+        </h3>
+        <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr] lg:grid-rows-[0fr]'} lg:group-hover:grid-rows-[1fr]`}>
+          <div className="min-h-0 overflow-hidden">
+            <p className={`text-[11px] leading-relaxed mt-2 opacity-0 ${expanded ? '!opacity-100' : ''} lg:group-hover:opacity-100 transition-all duration-300 delay-75 ${style.textClass}`}>
+              {translated.desc}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-3 border-t border-current/10">
+        <span className="text-[9px] font-mono uppercase tracking-wider font-bold bg-black/5 dark:bg-white/10 group-hover:bg-white/20 px-2 py-0.5 rounded transition-colors duration-300 group-hover:text-white">
+          {language === 'en' ? 'Vetted Class-E' : 'Classe-E Validé'}
+        </span>
+      </div>
+
+      {/* Mobile-only expand chevron */}
+      <div className={`absolute bottom-14 right-3 lg:hidden flex items-center justify-center w-6 h-6 rounded-full bg-black/5 dark:bg-white/10 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}>
+        <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-white/70" />
+      </div>
+    </motion.div>
+  );
+}
+
+// ---- Mobile-expandable Manpower Workflow Step Card ----
+function MobileManpowerWorkflowCard({ w, translated, idx, style, language }: {
+  w: any; translated: any; idx: number; style: any; language: string;
+}) {
+  const [expanded, setExpanded] = React.useState(false);
+  return (
+    <motion.div
+      variants={{
+        initial: { opacity: 0, y: 20 },
+        whileInView: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } }
+      }}
+      whileHover={{ y: -6, transition: { duration: 0.2 } }}
+      onClick={() => setExpanded(e => !e)}
+      className={`group rounded-3xl p-8 pb-10 space-y-4 shadow-sm hover:shadow-xl cursor-pointer transition-all duration-300 ease-out relative ${style.cardClass}`}
+    >
+      <div className="flex items-center justify-between">
+        <span className="font-display text-3xl font-black group-hover:text-white transition-colors duration-300">
+          {w.stepNumber}
+        </span>
+        <div className="flex items-center gap-2">
+          <span className={`text-[10px] font-mono px-2.5 py-1 rounded-md uppercase font-black transition-colors duration-300 group-hover:text-white ${style.iconBgClass} ${style.iconClass}`}>
+            {language === 'en' ? 'Vetting Standard' : 'Norme de Sélection'}
+          </span>
+          {/* Mobile chevron */}
+          <div className={`lg:hidden flex items-center justify-center w-6 h-6 rounded-full bg-black/5 dark:bg-white/10 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-white/70" />
+          </div>
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <h3 className="font-display text-base font-bold text-brand-navy dark:text-white group-hover:text-white transition-colors duration-300">
+          {translated.title}
+        </h3>
+        <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'} lg:grid-rows-[0fr] lg:group-hover:grid-rows-[1fr]`}>
+          <div className="min-h-0 overflow-hidden">
+            <p className={`text-xs leading-relaxed mt-2 transition-all duration-300 delay-75 ${expanded ? 'opacity-100' : 'opacity-0'} lg:opacity-0 lg:group-hover:opacity-100 ${style.textClass}`}>
+              {translated.desc}
+            </p>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
 }
 
 export default function ManpowerView({ onNavigate }: ManpowerViewProps) {
@@ -180,34 +272,15 @@ export default function ManpowerView({ onNavigate }: ManpowerViewProps) {
               const style = cardStyles[idx % cardStyles.length];
 
               return (
-                <motion.div 
+                <MobileManpowerCard
                   key={idx}
-                  variants={staggerItem}
-                  whileHover={{ y: -6, transition: { duration: 0.2 } }}
-                  className={`group rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 ease-out flex flex-col justify-between space-y-4 cursor-pointer ${style.cardClass}`}
-                >
-                  <div className="space-y-3">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-300 ${style.iconBgClass} ${style.iconClass}`}>
-                      {renderIcon(role.icon, "h-5 w-5")}
-                    </div>
-                    <h3 className="font-display text-sm font-bold text-brand-navy dark:text-white group-hover:text-white transition-colors duration-300">
-                      {translated.title}
-                    </h3>
-                    <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 ease-out">
-                      <div className="min-h-0 overflow-hidden">
-                        <p className={`text-[11px] leading-relaxed mt-2 opacity-0 group-hover:opacity-100 transition-all duration-300 delay-75 ${style.textClass}`}>
-                          {translated.desc}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-current/10">
-                    <span className="text-[9px] font-mono uppercase tracking-wider font-bold bg-black/5 dark:bg-white/10 group-hover:bg-white/20 px-2 py-0.5 rounded transition-colors duration-300 group-hover:text-white">
-                      {language === 'en' ? 'Vetted Class-E' : 'Classe-E Validé'}
-                    </span>
-                  </div>
-                </motion.div>
+                  role={role}
+                  translated={translated}
+                  idx={idx}
+                  style={style}
+                  renderIcon={renderIcon}
+                  language={language}
+                />
               );
             })}
           </motion.div>
@@ -263,33 +336,14 @@ export default function ManpowerView({ onNavigate }: ManpowerViewProps) {
               const style = cardStyles[idx % cardStyles.length];
 
               return (
-                <motion.div 
+                <MobileManpowerWorkflowCard
                   key={w.stepNumber}
-                  variants={staggerItem}
-                  whileHover={{ y: -6, transition: { duration: 0.2 } }}
-                  className={`group rounded-3xl p-8 space-y-4 shadow-sm hover:shadow-xl cursor-pointer transition-all duration-300 ease-out ${style.cardClass}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-display text-3xl font-black group-hover:text-white transition-colors duration-300">
-                      {w.stepNumber}
-                    </span>
-                    <span className={`text-[10px] font-mono px-2.5 py-1 rounded-md uppercase font-black transition-colors duration-300 group-hover:text-white ${style.iconBgClass} ${style.iconClass}`}>
-                      {language === 'en' ? 'Vetting Standard' : 'Norme de Sélection'}
-                    </span>
-                  </div>
-                  <div className="space-y-1.5">
-                    <h3 className="font-display text-base font-bold text-brand-navy dark:text-white group-hover:text-white transition-colors duration-300">
-                      {translated.title}
-                    </h3>
-                    <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 ease-out">
-                      <div className="min-h-0 overflow-hidden">
-                        <p className={`text-xs leading-relaxed mt-2 opacity-0 group-hover:opacity-100 transition-all duration-300 delay-75 ${style.textClass}`}>
-                          {translated.desc}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
+                  w={w}
+                  translated={translated}
+                  idx={idx}
+                  style={style}
+                  language={language}
+                />
               );
             })}
           </motion.div>

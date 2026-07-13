@@ -240,9 +240,9 @@ export default function CareersView({ onNavigate }: CareersViewProps) {
                     <h3 className="font-display text-base font-bold text-brand-navy dark:text-white group-hover:text-white transition-colors duration-300">
                       {v.title}
                     </h3>
-                    <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 ease-out">
+                    <div className="grid grid-rows-[1fr] lg:grid-rows-[0fr] lg:group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 ease-out">
                       <div className="min-h-0 overflow-hidden">
-                        <p className={`text-xs leading-relaxed mt-2 opacity-0 group-hover:opacity-100 transition-all duration-300 delay-75 ${style.textClass}`}>
+                        <p className={`text-xs leading-relaxed mt-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300 delay-75 ${style.textClass}`}>
                           {v.desc}
                         </p>
                       </div>

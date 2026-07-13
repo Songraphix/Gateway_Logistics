@@ -1,7 +1,7 @@
 import React from 'react';
 import { Page, FeatureItem } from '../types';
 import { useData } from '../DataContext';
-import { ShieldAlert, Eye, Target, Compass, Award, Shield, Users, Clock, Cpu } from 'lucide-react';
+import { ShieldAlert, Eye, Target, Compass, Award, Shield, Users, Clock, Cpu, ChevronDown } from 'lucide-react';
 import { useLanguage } from '../LanguageContext';
 import { motion } from 'motion/react';
 import TeamSection from './TeamSection';
@@ -30,6 +30,51 @@ const staggerItem = {
 
 interface AboutViewProps {
   onNavigate: (page: Page) => void;
+}
+
+// ---- Mobile-expandable About Feature Card (Key Pillars section) ----
+function MobileAboutFeatureCard({ f, translatedFeature, idx, style, renderIcon }: {
+  f: any; translatedFeature: any; idx: number; style: any;
+  renderIcon: (name: string, cls?: string) => React.ReactNode;
+}) {
+  const [expanded, setExpanded] = React.useState(false);
+  return (
+    <motion.div
+      key={f.id}
+      variants={{
+        initial: { opacity: 0, y: 20 },
+        whileInView: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } }
+      }}
+      onClick={() => setExpanded(e => !e)}
+      className={`group relative overflow-hidden rounded-3xl transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] cursor-pointer flex-1 lg:hover:flex-[2.5] shadow-sm hover:shadow-2xl ${style.cardClass}`}
+    >
+      <div className="relative lg:absolute lg:inset-0 p-8 flex flex-col justify-start min-w-[280px]">
+        <div className="flex items-center space-x-4 mb-8">
+          <span className="font-mono text-xl lg:text-2xl font-black tracking-widest opacity-80">
+            #{idx + 1}
+          </span>
+          {/* Mobile chevron */}
+          <div className={`ml-auto lg:hidden flex items-center justify-center w-6 h-6 rounded-full bg-white/20 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}>
+            <ChevronDown className="w-3.5 h-3.5 opacity-80" />
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="font-display text-lg lg:text-xl font-extrabold uppercase leading-tight">
+            {translatedFeature.title}
+          </h3>
+
+          <div className={`grid transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] ${expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'} lg:grid-rows-[0fr] lg:group-hover:grid-rows-[1fr]`}>
+            <div className="min-h-0 overflow-hidden">
+              <p className={`text-xs lg:text-sm leading-relaxed mt-2 transition-opacity duration-500 delay-100 ${expanded ? 'opacity-100' : 'opacity-0'} lg:opacity-0 lg:group-hover:opacity-100 ${style.textClass}`}>
+                {translatedFeature.desc}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
 }
 
 export default function AboutView({ onNavigate }: AboutViewProps) {
@@ -123,7 +168,7 @@ export default function AboutView({ onNavigate }: AboutViewProps) {
                 <div className="absolute -inset-3 rounded-2xl bg-brand-cyan/10 pointer-events-none -rotate-1" />
                 <div className="relative h-[380px] rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-white/5">
                   <img 
-                    src="https://images.unsplash.com/photo-1516576885502-b2717a65f7c3?auto=format&fit=crop&q=80&w=800" 
+                    src="/assets/aboutpageImage.png" 
                     alt="Active logistics loading terminal"
                     className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                     referrerPolicy="no-referrer"
@@ -268,34 +313,14 @@ export default function AboutView({ onNavigate }: AboutViewProps) {
               const style = cardStyles[idx];
  
               return (
-                <motion.div 
-                  key={f.id} 
-                  variants={staggerItem}
-                  className={`group relative overflow-hidden rounded-3xl transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] cursor-pointer flex-1 lg:hover:flex-[2.5] shadow-sm hover:shadow-2xl ${style.cardClass}`}
-                >
-                  {/* Fixed width inner container prevents text from squishing when outer container shrinks */}
-                  <div className="absolute inset-0 p-8 flex flex-col justify-start min-w-[280px]">
-                    <div className="flex items-center space-x-4 mb-8">
-                      <span className="font-mono text-xl lg:text-2xl font-black tracking-widest opacity-80">
-                        #{idx + 1}
-                      </span>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      <h3 className="font-display text-lg lg:text-xl font-extrabold uppercase leading-tight">
-                        {translatedFeature.title}
-                      </h3>
-                      
-                      <div className="grid grid-rows-[0fr] lg:group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]">
-                        <div className="min-h-0 overflow-hidden">
-                          <p className={`text-xs lg:text-sm leading-relaxed mt-2 opacity-0 lg:group-hover:opacity-100 transition-opacity duration-500 delay-100 ${style.textClass}`}>
-                            {translatedFeature.desc}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
+                <MobileAboutFeatureCard
+                  key={f.id}
+                  f={f}
+                  translatedFeature={translatedFeature}
+                  idx={idx}
+                  style={style}
+                  renderIcon={renderIcon}
+                />
               );
             })}
           </motion.div>
