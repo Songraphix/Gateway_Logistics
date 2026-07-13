@@ -11,6 +11,18 @@ export default function NetworkGraphic() {
     { id: 6, icon: CheckCircle2, label: 'Safe Delivery', x: '75%', y: '15%', color: 'border-brand-gold text-brand-gold' },
   ];
 
+  const [activeNodeId, setActiveNodeId] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    const handleOutsideClick = () => {
+      setActiveNodeId(null);
+    };
+    window.addEventListener('click', handleOutsideClick);
+    return () => {
+      window.removeEventListener('click', handleOutsideClick);
+    };
+  }, []);
+
   return (
     <div id="network-graphic-container" className="relative w-full overflow-hidden bg-gradient-to-b from-white via-sky-50/50 to-white dark:from-slate-950 dark:via-slate-900/40 dark:to-slate-950 py-20 text-slate-800 dark:text-slate-100">
       {/* Absolute grid background */}
@@ -99,15 +111,19 @@ export default function NetworkGraphic() {
             {nodes.map((node) => (
               <div
                 key={node.id}
-                className="absolute flex flex-col items-center group pointer-events-auto"
+                className="absolute flex flex-col items-center group pointer-events-auto cursor-pointer"
                 style={{ left: node.x, top: node.y, transform: 'translate(-50%, -50%)' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveNodeId(activeNodeId === node.id ? null : node.id);
+                }}
               >
-                <div className={`flex h-10 w-10 items-center justify-center rounded-full border bg-white dark:bg-slate-900 shadow-md transition-all duration-300 group-hover:scale-110 group-hover:border-brand-gold dark:border-white/10 ${node.color}`}>
+                <div className={`flex h-10 w-10 items-center justify-center rounded-full border bg-white dark:bg-slate-900 shadow-md transition-all duration-300 group-hover:scale-110 group-hover:border-brand-gold dark:border-white/10 ${node.color} ${activeNodeId === node.id ? 'scale-110 border-brand-gold ring-4 ring-brand-gold/25' : ''}`}>
                   <node.icon className="h-5 w-5" />
                 </div>
                 
                 {/* Node Label Popover */}
-                <div className="mt-1.5 scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-200 pointer-events-none bg-brand-navy text-[9px] font-mono tracking-wider uppercase text-white px-2.5 py-1 rounded-lg border border-slate-100 dark:border-white/10 whitespace-nowrap shadow-lg">
+                <div className={`mt-1.5 transition-all duration-200 pointer-events-none bg-brand-navy text-[9px] font-mono tracking-wider uppercase text-white px-2.5 py-1 rounded-lg border border-slate-100 dark:border-white/10 whitespace-nowrap shadow-lg ${activeNodeId === node.id ? 'scale-100 opacity-100' : 'scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100'}`}>
                   {node.label}
                 </div>
               </div>
