@@ -5,6 +5,7 @@ import { ShieldAlert, Eye, Target, Compass, Award, Shield, Users, Clock, Cpu, Ch
 import { useLanguage } from '../LanguageContext';
 import { motion } from 'motion/react';
 import TeamSection from './TeamSection';
+import aboutPageImage from '@/assets/aboutpageImage.png';
 
 const fadeInUp = {
   initial: { opacity: 0, y: 30 },
@@ -168,7 +169,7 @@ export default function AboutView({ onNavigate }: AboutViewProps) {
                 <div className="absolute -inset-3 rounded-2xl bg-brand-cyan/10 pointer-events-none -rotate-1" />
                 <div className="relative h-[380px] rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-white/5">
                   <img 
-                    src="/assets/aboutpageImage.png" 
+                    src={aboutPageImage} 
                     alt="Active logistics loading terminal"
                     className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                     referrerPolicy="no-referrer"
