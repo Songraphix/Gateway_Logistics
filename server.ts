@@ -1567,15 +1567,14 @@ const ADMIN_SETTINGS_PATH = path.resolve(process.cwd(), 'admin-settings.json');
 const getAdminPassword = async (): Promise<string> => {
   if (db) {
     try {
-      return await executeWithDbFallback(async (dbInstance) => {
-        const doc = await dbInstance.collection('admin_settings').doc('auth').get();
-        if (doc.exists) {
-          return doc.data()?.password || process.env.ADMIN_PASSWORD || 'Gateway26';
-        }
-        return process.env.ADMIN_PASSWORD || 'Gateway26';
+      const doc = await executeWithDbFallback(async (dbInstance) => {
+        return await dbInstance.collection('admin_settings').doc('auth').get();
       });
+      if (doc.exists) {
+        return doc.data()?.password || process.env.ADMIN_PASSWORD || 'Gateway26';
+      }
     } catch (e: any) {
-      console.error('Error fetching password from Firestore:', e.message);
+      console.warn('Error fetching password from Firestore, using local fallback:', e.message);
     }
   }
   if (fs.existsSync(ADMIN_SETTINGS_PATH)) {
