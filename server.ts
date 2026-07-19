@@ -1559,17 +1559,97 @@ app.get('/api/db-status', async (req, res) => {
   });
 });
 
-// POST /api/admin/login
-app.post('/api/admin/login', (req, res) => {
-  const { password } = req.body;
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+// ============================================================
+// ADMIN AUTHENTICATION SETTINGS SYSTEM
+// ============================================================
+const ADMIN_SETTINGS_PATH = path.resolve(process.cwd(), 'admin-settings.json');
 
-  if (password === adminPassword) {
-    res.json({ success: true, message: 'Authenticated successfully' });
-  } else {
-    res.status(401).json({ success: false, error: 'Invalid password' });
+const getAdminPassword = async (): Promise<string> => {
+  if (db) {
+    try {
+      return await executeWithDbFallback(async (dbInstance) => {
+        const doc = await dbInstance.collection('admin_settings').doc('auth').get();
+        if (doc.exists) {
+          return doc.data()?.password || process.env.ADMIN_PASSWORD || 'Gateway26';
+        }
+        return process.env.ADMIN_PASSWORD || 'Gateway26';
+      });
+    } catch (e: any) {
+      console.error('Error fetching password from Firestore:', e.message);
+    }
+  }
+  if (fs.existsSync(ADMIN_SETTINGS_PATH)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(ADMIN_SETTINGS_PATH, 'utf-8'));
+      return data.password || process.env.ADMIN_PASSWORD || 'Gateway26';
+    } catch (e) {}
+  }
+  return process.env.ADMIN_PASSWORD || 'Gateway26';
+};
+
+const saveAdminPassword = async (newPassword: string): Promise<boolean> => {
+  let savedToFirestore = false;
+  if (db) {
+    try {
+      await executeWithDbFallback(async (dbInstance) => {
+        await dbInstance.collection('admin_settings').doc('auth').set({
+          password: newPassword,
+          updatedAt: new Date().toISOString()
+        });
+      });
+      savedToFirestore = true;
+    } catch (e: any) {
+      console.error('Error saving password to Firestore:', e.message);
+    }
+  }
+  try {
+    fs.writeFileSync(ADMIN_SETTINGS_PATH, JSON.stringify({ password: newPassword }, null, 2), 'utf-8');
+    return true;
+  } catch (e) {
+    console.error('Error saving password locally:', e);
+    return savedToFirestore;
+  }
+};
+
+// POST /api/admin/login
+app.post('/api/admin/login', async (req, res) => {
+  const { password } = req.body;
+  try {
+    const adminPassword = await getAdminPassword();
+    if (password === adminPassword) {
+      res.json({ success: true, message: 'Authenticated successfully' });
+    } else {
+      res.status(401).json({ success: false, error: 'Invalid passcode' });
+    }
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: 'Server authentication error', details: err.message });
   }
 });
+
+// POST /api/admin/change-password
+app.post('/api/admin/change-password', async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!newPassword || newPassword.length < 4) {
+    return res.status(400).json({ error: 'New password must be at least 4 characters long' });
+  }
+
+  try {
+    const savedPassword = await getAdminPassword();
+    if (currentPassword !== savedPassword) {
+      return res.status(401).json({ error: 'Incorrect current passcode' });
+    }
+
+    const ok = await saveAdminPassword(newPassword);
+    if (ok) {
+      res.json({ success: true, message: 'Passcode updated successfully.' });
+    } else {
+      res.status(500).json({ error: 'Failed to update passcode in storage' });
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: 'Error modifying settings', details: err.message });
+  }
+});
+
 
 // Vite middleware integration or production static files serving
 async function startServer() {

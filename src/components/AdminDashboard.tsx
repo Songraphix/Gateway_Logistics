@@ -350,6 +350,12 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
     ctaPage: 'contact'
   });
 
+  // Security settings state
+  const [currentPasswordInput, setCurrentPasswordInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [securityFeedback, setSecurityFeedback] = useState('');
+  const [isSavingSecurity, setIsSavingSecurity] = useState(false);
+
   useEffect(() => {
     if (promotionSettings) {
       setPromoForm({
@@ -376,6 +382,36 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
       setPassword('');
     }
   };
+
+  const handleUpdatePasscode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPasswordInput.length < 4) {
+      setSecurityFeedback('❌ New passcode must be at least 4 characters long.');
+      return;
+    }
+    setIsSavingSecurity(true);
+    setSecurityFeedback('');
+    try {
+      const res = await fetch('/api/admin/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: currentPasswordInput, newPassword: newPasswordInput })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSecurityFeedback('✓ Passcode updated successfully.');
+        setCurrentPasswordInput('');
+        setNewPasswordInput('');
+      } else {
+        setSecurityFeedback(`❌ ${data.error || 'Failed to update passcode'}`);
+      }
+    } catch {
+      setSecurityFeedback('❌ Error updating passcode.');
+    } finally {
+      setIsSavingSecurity(false);
+    }
+  };
+
 
   if (!isAdminLoggedIn) {
     return (
@@ -1734,6 +1770,68 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                           <Save className="h-4 w-4" />
                         )}
                         <span>Save Settings</span>
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {activeTab === 'promotions' && (
+                  <form onSubmit={handleUpdatePasscode} className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 text-left mt-6">
+                    <div className="flex items-center space-x-3 pb-4 border-b border-slate-200 dark:border-white/10">
+                      <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#0084C2] to-indigo-600 flex items-center justify-center shadow-lg text-white">
+                        <Lock className="h-4.5 w-4.5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Portal Security Settings</h3>
+                        <p className="text-xs text-slate-500">Change the administrator passkey required to access this dashboard.</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">Current Passcode</label>
+                        <input
+                          type="password"
+                          required
+                          value={currentPasswordInput}
+                          onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-brand-navy dark:text-white rounded-xl py-2.5 px-4 text-xs"
+                          placeholder="••••••••"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">New Passcode</label>
+                        <input
+                          type="password"
+                          required
+                          value={newPasswordInput}
+                          onChange={(e) => setNewPasswordInput(e.target.value)}
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-brand-navy dark:text-white rounded-xl py-2.5 px-4 text-xs"
+                          placeholder="••••••••"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-white/10">
+                      {securityFeedback ? (
+                        <span className={`text-xs font-bold uppercase tracking-wider ${
+                          securityFeedback.startsWith('✓') ? 'text-emerald-500' : 'text-rose-500'
+                        }`}>{securityFeedback}</span>
+                      ) : (
+                        <div />
+                      )}
+                      <button
+                        type="submit"
+                        disabled={isSavingSecurity}
+                        className="px-4.5 py-2.5 bg-[#0084C2] hover:bg-[#0070A4] text-white text-xs font-bold rounded-xl tracking-wider uppercase transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isSavingSecurity ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Save className="h-4 w-4" />
+                        )}
+                        <span>Update Passcode</span>
                       </button>
                     </div>
                   </form>
