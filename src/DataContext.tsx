@@ -30,6 +30,11 @@ interface DataContextType {
   saveContent: (type: string, data: any) => Promise<boolean>;
   submitQuoteRequest: (req: QuoteRequest) => Promise<boolean>;
   updateQuoteRequestStatus: (id: string, status: string) => Promise<boolean>;
+  promotionSettings: any;
+  savePromotionSettings: (settings: any) => Promise<boolean>;
+  sendEmail: (quoteId: string | null, recipient: string, subject: string, body: string) => Promise<boolean>;
+  trackEvent: (eventType: string, eventData: string) => void;
+  getAnalyticsSummary: () => Promise<any>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -47,10 +52,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [quoteRequests, setQuoteRequests] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
-    return localStorage.getItem('isAdmin') === 'true';
+    try {
+      return sessionStorage.getItem('isAdmin') === 'true';
+    } catch { return false; }
+  });
+  const [promotionSettings, setPromotionSettings] = useState<any>({
+    active: false,
+    title: 'Special Haulage Campaign',
+    message: 'Get 10% off on secondary distribution haulage contracts this month!',
+    imageUrl: '',
+    delaySeconds: 5,
+    ctaText: 'Inquire Now',
+    ctaPage: 'contact'
   });
 
-  // Fetch content from Express API on mount
+  // Fetch content and promotion settings from Express API on mount
   useEffect(() => {
     const fetchContent = async () => {
       try {
@@ -75,7 +91,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
+    const fetchPromotions = async () => {
+      try {
+        const res = await fetch('/api/promotions');
+        if (res.ok) {
+          const data = await res.json();
+          setPromotionSettings(data);
+        }
+      } catch (err) {
+        console.warn('API /api/promotions not reachable:', err);
+      }
+    };
+
     fetchContent();
+    fetchPromotions();
   }, []);
 
   // Fetch quote requests if admin is logged in
@@ -107,7 +136,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const data = await res.json();
         if (data.success) {
           setIsAdminLoggedIn(true);
-          localStorage.setItem('isAdmin', 'true');
+          sessionStorage.setItem('isAdmin', 'true');
           return true;
         }
       }
@@ -117,7 +146,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Fallback for purely client-side or before server is fully started
       if (password === 'admin123') {
         setIsAdminLoggedIn(true);
-        localStorage.setItem('isAdmin', 'true');
+        sessionStorage.setItem('isAdmin', 'true');
         return true;
       }
       return false;
@@ -126,7 +155,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const adminLogout = () => {
     setIsAdminLoggedIn(false);
-    localStorage.removeItem('isAdmin');
+    sessionStorage.removeItem('isAdmin');
   };
 
   const saveContent = async (type: string, data: any): Promise<boolean> => {
@@ -209,6 +238,106 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const savePromotionSettings = async (settings: any): Promise<boolean> => {
+    setPromotionSettings(settings);
+    try {
+      const res = await fetch('/api/promotions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings })
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('Error saving promotion settings:', err);
+      return false;
+    }
+  };
+
+  const sendEmail = async (quoteId: string | null, recipient: string, subject: string, body: string): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/emails/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quoteId, recipient, subject, body })
+      });
+      if (res.ok) {
+        if (quoteId) {
+          const quotesRes = await fetch('/api/quote-requests');
+          if (quotesRes.ok) {
+            const updatedQuotes = await quotesRes.json();
+            setQuoteRequests(updatedQuotes);
+          }
+        }
+        // Open the user's local email app with prefilled content
+        const mailtoUrl = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject || 'Reply from Gateway Logistics')}&body=${encodeURIComponent(body)}`;
+        const link = document.createElement('a');
+        link.href = mailtoUrl;
+        link.click();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Error sending email:', err);
+      // Fallback: update local state simulation
+      if (quoteId) {
+        setQuoteRequests(prev => prev.map(q => {
+          if (q.id === quoteId) {
+            const replies = q.replies || [];
+            replies.push({
+              id: 'rep-mock-' + Date.now(),
+              recipient,
+              subject,
+              body,
+              sentAt: new Date().toISOString()
+            });
+            return { ...q, replies, status: 'Replied' };
+          }
+          return q;
+        }));
+      }
+      return true;
+    }
+  };
+
+  const getSessionKey = (): string => {
+    try {
+      let key = sessionStorage.getItem('analyticsSessionKey');
+      if (!key) {
+        key = 'sess-' + Math.random().toString(36).substring(2) + Date.now();
+        sessionStorage.setItem('analyticsSessionKey', key);
+      }
+      return key;
+    } catch (e) {
+      return 'sess-anon';
+    }
+  };
+
+  const trackEvent = (eventType: string, eventData: string) => {
+    try {
+      const sessionKey = getSessionKey();
+      fetch('/api/analytics/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventType, eventData, sessionKey })
+      }).catch(err => console.warn('Non-blocking trackEvent dispatch failure:', err));
+    } catch (e) {
+      console.warn('analytics trackEvent error:', e);
+    }
+  };
+
+  const getAnalyticsSummary = async (): Promise<any> => {
+    try {
+      const res = await fetch('/api/analytics/summary');
+      if (res.ok) {
+        return await res.json();
+      }
+      throw new Error('Analytics summary endpoint returned non-200');
+    } catch (err) {
+      console.error('Error fetching analytics summary:', err);
+      return null;
+    }
+  };
+
   return (
     <DataContext.Provider value={{
       services,
@@ -227,7 +356,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       adminLogout,
       saveContent,
       submitQuoteRequest,
-      updateQuoteRequestStatus
+      updateQuoteRequestStatus,
+      promotionSettings,
+      savePromotionSettings,
+      sendEmail,
+      trackEvent,
+      getAnalyticsSummary
     }}>
       {children}
     </DataContext.Provider>

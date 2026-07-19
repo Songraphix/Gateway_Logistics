@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '../DataContext';
 import { Page, ServiceItem, FeatureItem, WorkflowStep, JobOpening, NewsArticle, FAQItem, TestimonialItem } from '../types';
+import { RichTextEditor } from './RichTextEditor';
 import { 
   Lock, LogOut, CheckCircle, Clock, AlertCircle, Edit, Trash, Plus, 
   Save, X, Eye, FileText, Briefcase, MessageSquare, Shield, HelpCircle, 
   FileCheck, Map, Users, ChevronRight, Settings, Server, RefreshCw,
-  Upload, Image as ImageIcon, Trash2, Link, Star, Quote
+  Upload, Image as ImageIcon, Trash2, Link, Star, Quote, Search, Mail, Send, Sparkles, BarChart2, Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -175,18 +176,114 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
   const {
     services, features, workflowSteps, miningSolutions, manpowerRoles,
     jobOpenings, newsArticles, faqs, testimonials, quoteRequests, isAdminLoggedIn,
-    adminLogin, adminLogout, saveContent, updateQuoteRequestStatus
+    adminLogin, adminLogout, saveContent, updateQuoteRequestStatus,
+    promotionSettings, savePromotionSettings, sendEmail, getAnalyticsSummary
   } = useData();
 
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [activeTab, setActiveTab] = useState<'quotes' | 'services' | 'features' | 'careers' | 'news' | 'faqs'>('quotes');
+  const [activeTab, setActiveTab] = useState<'quotes' | 'services' | 'features' | 'careers' | 'news' | 'faqs' | 'promotions' | 'analytics' | 'livechat'>('analytics');
+
+  const [analyticsSummary, setAnalyticsSummary] = useState<any>(null);
+  const [analyticsRange, setAnalyticsRange] = useState<'7' | '30'>('7');
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'analytics') {
+      setIsLoadingAnalytics(true);
+      getAnalyticsSummary().then((data: any) => {
+        setAnalyticsSummary(data);
+        setIsLoadingAnalytics(false);
+      });
+    }
+  }, [activeTab]);
+
+  // Live Chat state
+  const [chatSessions, setChatSessions] = useState<any[]>([]);
+  const [selectedChatSession, setSelectedChatSession] = useState<string | null>(null);
+  const [sessionMessages, setSessionMessages] = useState<any[]>([]);
+  const [adminReply, setAdminReply] = useState('');
+  const [isSendingChatReply, setIsSendingChatReply] = useState(false);
+  const [isLoadingChat, setIsLoadingChat] = useState(false);
+  const chatAdminBottomRef = useRef<HTMLDivElement | null>(null);
+
+  const fetchChatSessions = async () => {
+    try {
+      const res = await fetch('/api/chat/messages');
+      if (res.ok) {
+        const msgs: any[] = await res.json();
+        // Group by sessionId
+        const bySession: Record<string, any[]> = {};
+        msgs.forEach(m => {
+          if (!bySession[m.sessionId]) bySession[m.sessionId] = [];
+          bySession[m.sessionId].push(m);
+        });
+        const sessions = Object.entries(bySession).map(([sid, messages]) => {
+          const sorted = [...messages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+          const last = sorted[sorted.length - 1];
+          const unread = sorted.filter(m => m.sender === 'visitor' && !m.read).length;
+          return { sessionId: sid, messages: sorted, lastMessage: last, unread, visitorName: sorted.find(m => m.sender === 'visitor')?.visitorName || 'Site Visitor' };
+        });
+        sessions.sort((a, b) => new Date(b.lastMessage?.createdAt).getTime() - new Date(a.lastMessage?.createdAt).getTime());
+        setChatSessions(sessions);
+        // Refresh active session messages
+        if (selectedChatSession) {
+          const active = sessions.find(s => s.sessionId === selectedChatSession);
+          if (active) setSessionMessages(active.messages);
+        }
+      }
+    } catch {}
+  };
+
+  const chatPollRef = useRef<any>(null);
+  useEffect(() => {
+    if (activeTab === 'livechat') {
+      setIsLoadingChat(true);
+      fetchChatSessions().finally(() => setIsLoadingChat(false));
+      chatPollRef.current = setInterval(fetchChatSessions, 5000);
+    } else {
+      clearInterval(chatPollRef.current);
+    }
+    return () => clearInterval(chatPollRef.current);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (selectedChatSession) {
+      const session = chatSessions.find(s => s.sessionId === selectedChatSession);
+      if (session) setSessionMessages(session.messages);
+    }
+  }, [chatSessions, selectedChatSession]);
+
+  useEffect(() => {
+    chatAdminBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [sessionMessages]);
+
+  const handleSendChatReply = async () => {
+    if (!adminReply.trim() || !selectedChatSession || isSendingChatReply) return;
+    setIsSendingChatReply(true);
+    const text = adminReply.trim();
+    setAdminReply('');
+    try {
+      const res = await fetch('/api/chat/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: selectedChatSession, message: text })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSessionMessages(prev => [...prev, data.message]);
+        fetchChatSessions();
+      }
+    } catch {}
+    setIsSendingChatReply(false);
+  };
 
   const [dbStatus, setDbStatus] = useState<{
     isConfigured: boolean;
     websiteContentExists: boolean;
     quoteRequestsExists: boolean;
+    promotionsExists?: boolean;
     hasMissingTables: boolean;
     details: string;
   } | null>(null);
@@ -227,6 +324,45 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
   const [newsForm, setNewsForm] = useState<Partial<NewsArticle>>({});
   const [faqForm, setFaqForm] = useState<Partial<FAQItem>>({});
   const [testimonialForm, setTestimonialForm] = useState<Partial<TestimonialItem>>({});
+
+  // Inbox / Email client states
+  const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [replySubject, setReplySubject] = useState('');
+  const [replyBody, setReplyBody] = useState('');
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailStatusFeedback, setEmailStatusFeedback] = useState('');
+  const [showNewEmailModal, setShowNewEmailModal] = useState(false);
+  const [newEmailRecipient, setNewEmailRecipient] = useState('');
+  const [newEmailSubject, setNewEmailSubject] = useState('');
+  const [newEmailBody, setNewEmailBody] = useState('');
+  const [newEmailAIActive, setNewEmailAIActive] = useState(false);
+
+  // Promotions form state
+  const [promoForm, setPromoForm] = useState({
+    active: false,
+    title: '',
+    message: '',
+    imageUrl: '',
+    delaySeconds: 5,
+    ctaText: 'Inquire Now',
+    ctaPage: 'contact'
+  });
+
+  useEffect(() => {
+    if (promotionSettings) {
+      setPromoForm({
+        active: promotionSettings.active || false,
+        title: promotionSettings.title || '',
+        message: promotionSettings.message || '',
+        imageUrl: promotionSettings.imageUrl || '',
+        delaySeconds: promotionSettings.delaySeconds || 5,
+        ctaText: promotionSettings.ctaText || 'Inquire Now',
+        ctaPage: promotionSettings.ctaPage || 'contact'
+      });
+    }
+  }, [promotionSettings]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -446,6 +582,163 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
     }
   };
 
+  const [isSavingPromo, setIsSavingPromo] = useState(false);
+  const [promoSaveFeedback, setPromoSaveFeedback] = useState('');
+
+  const handleSavePromotions = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingPromo(true);
+    setPromoSaveFeedback('');
+    const success = await savePromotionSettings(promoForm);
+    setIsSavingPromo(false);
+    if (success) {
+      setPromoSaveFeedback('✓ Promotion settings successfully saved and synced!');
+      setTimeout(() => setPromoSaveFeedback(''), 4000);
+    } else {
+      setPromoSaveFeedback('❌ Failed to save settings.');
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (quoteRequests.length === 0) return;
+    
+    const headers = ['ID', 'Date', 'Full Name', 'Contact Info', 'Service Category', 'Status', 'Details', 'Replies Count'];
+    const rows = quoteRequests.map(req => [
+      req.id || '',
+      req.createdAt ? new Date(req.createdAt).toISOString() : '',
+      `"${(req.fullName || 'Anonymous').replace(/"/g, '""')}"`,
+      `"${(req.emailOrPhone || '').replace(/"/g, '""')}"`,
+      `"${(req.service || 'General').replace(/"/g, '""')}"`,
+      `"${(req.status || 'Pending').replace(/"/g, '""')}"`,
+      `"${(req.details || '').replace(/"/g, '""')}"`,
+      req.replies ? req.replies.length : 0
+    ]);
+    
+    const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    
+    try {
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `gateway_inbound_leads_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('CSV download error:', err);
+    }
+  };
+
+  const handleDraftWithGemini = async () => {
+    const selectedQuote = quoteRequests.find(q => q.id === selectedQuoteId);
+    if (!selectedQuote) return;
+    
+    setIsGeneratingAI(true);
+    setEmailStatusFeedback('');
+    try {
+      const res = await fetch('/api/ai/suggest-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quoteDetails: selectedQuote })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.suggestion) {
+          setReplyBody(data.suggestion);
+          setEmailStatusFeedback('✨ Gemini drafted reply successfully!');
+        }
+      } else {
+        setEmailStatusFeedback('AI failed to draft reply.');
+      }
+    } catch (err) {
+      console.error(err);
+      setEmailStatusFeedback('AI Draft error.');
+    } finally {
+      setIsGeneratingAI(false);
+      setTimeout(() => setEmailStatusFeedback(''), 3000);
+    }
+  };
+
+  const handleSendEmailReply = async () => {
+    const selectedQuote = quoteRequests.find(q => q.id === selectedQuoteId);
+    if (!selectedQuote) return;
+
+    setIsSendingEmail(true);
+    setEmailStatusFeedback('');
+    
+    const recipient = selectedQuote.emailOrPhone;
+    const success = await sendEmail(selectedQuote.id, recipient, replySubject, replyBody);
+    
+    setIsSendingEmail(false);
+    if (success) {
+      setEmailStatusFeedback('✉️ Reply email dispatched successfully!');
+      setReplyBody('');
+      // Update status to In Discussion or Replied
+      await updateQuoteRequestStatus(selectedQuote.id, 'Replied');
+      setTimeout(() => setEmailStatusFeedback(''), 3000);
+    } else {
+      setEmailStatusFeedback('❌ Failed to send reply email.');
+    }
+  };
+
+  const handleSendComposeNewEmail = async () => {
+    if (!newEmailRecipient || !newEmailBody) {
+      alert('Recipient and body are required.');
+      return;
+    }
+    
+    setIsSendingEmail(true);
+    try {
+      const success = await sendEmail(
+        null,
+        newEmailRecipient,
+        newEmailSubject || 'Direct Email - Gateway Logistics',
+        newEmailBody
+      );
+      if (success) {
+        alert('New email successfully dispatched!');
+        setShowNewEmailModal(false);
+        setNewEmailRecipient('');
+        setNewEmailSubject('');
+        setNewEmailBody('');
+      } else {
+        alert('Failed to dispatch email.');
+      }
+    } catch (err) {
+      alert('Error sending email.');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const handleNewEmailAIImprove = async () => {
+    if (!newEmailBody) return;
+    setNewEmailAIActive(true);
+    try {
+      const res = await fetch('/api/ai/improve-article', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newEmailSubject || 'Direct Email',
+          excerpt: 'Direct outbound message',
+          content: newEmailBody
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.improvedContent) {
+          setNewEmailBody(data.improvedContent);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setNewEmailAIActive(false);
+    }
+  };
+
   const handleDeleteItem = async (type: string, id: string | number) => {
     if (!window.confirm('Are you absolutely sure you want to delete this item?')) return;
 
@@ -658,6 +951,47 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                 <Quote className="h-4.5 w-4.5" />
                 <span>Customer Testimonials</span>
               </button>
+
+              <button
+                onClick={() => { setActiveTab('promotions'); closeEditor(); }}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                  activeTab === 'promotions'
+                    ? 'bg-[#0084C2] text-white shadow-md'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
+                }`}
+              >
+                <Settings className="h-4.5 w-4.5" />
+                <span>Website Promotions</span>
+              </button>
+
+              <button
+                onClick={() => { setActiveTab('analytics'); closeEditor(); }}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                  activeTab === 'analytics'
+                    ? 'bg-[#0084C2] text-white shadow-md'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
+                }`}
+              >
+                <BarChart2 className="h-4.5 w-4.5" />
+                <span>Performance & Stats</span>
+              </button>
+
+              <button
+                onClick={() => { setActiveTab('livechat'); closeEditor(); }}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                  activeTab === 'livechat'
+                    ? 'bg-[#0084C2] text-white shadow-md'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
+                }`}
+              >
+                <MessageSquare className="h-4.5 w-4.5" />
+                <span>Live Chat Inbox</span>
+                {chatSessions.reduce((n, s) => n + s.unread, 0) > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-[9px] font-black rounded-full h-4.5 w-4.5 flex items-center justify-center">
+                    {chatSessions.reduce((n, s) => n + s.unread, 0)}
+                  </span>
+                )}
+              </button>
             </nav>
 
             {/* Database status card */}
@@ -690,8 +1024,8 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                       {!dbStatus.isConfigured 
                         ? 'File-Store Mode' 
                         : dbStatus.hasMissingTables 
-                          ? 'Supabase: Table Missing' 
-                          : 'Supabase Connected'}
+                          ? 'Firebase: Collection Missing' 
+                          : 'Firebase Connected'}
                     </span>
                   </div>
 
@@ -699,8 +1033,8 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                     {!dbStatus.isConfigured 
                       ? 'No active database configuration detected. Edits persist locally in container file storage.' 
                       : dbStatus.hasMissingTables 
-                        ? 'Supabase is configured, but the required tables ("website_content" or "quote_requests") do not exist yet.' 
-                        : 'Your modifications are synchronizing directly to your Cloud Supabase instance.'}
+                        ? 'Firebase is configured, but the required collections ("website_content" or "quote_requests") do not exist yet.' 
+                        : 'Your modifications are synchronizing directly to your Cloud Firebase Firestore instance.'}
                   </p>
 
                   {dbStatus.isConfigured && dbStatus.hasMissingTables && (
@@ -740,26 +1074,30 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                 <div className="flex justify-between items-center bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-5 rounded-2xl shadow-sm">
                   <div>
                     <h2 className="text-lg font-bold uppercase tracking-tight font-display">
-                      {activeTab === 'quotes' && 'Incoming Quote Requests'}
+                      {activeTab === 'quotes' && 'Inbox & Customer Communications'}
                       {activeTab === 'services' && 'Logistics Port & Freight Services'}
                       {activeTab === 'features' && 'Capabilities (Why Choose Us)'}
                       {activeTab === 'careers' && 'Career Vacancies Directory'}
                       {activeTab === 'news' && 'Operational Bulletins & Company News'}
                       {activeTab === 'faqs' && 'Frequently Asked Questions'}
                       {activeTab === 'testimonials' && 'Client Endorsements & Testimonials'}
+                      {activeTab === 'promotions' && 'Website Promotional Popup Campaigns'}
+                      {activeTab === 'analytics' && 'Website Performance & Analytics'}
                     </h2>
                     <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                      {activeTab === 'quotes' && 'Real-time client leads logged through standard web forms.'}
+                      {activeTab === 'quotes' && 'Real-time client leads and quote requests logged through web forms.'}
                       {activeTab === 'services' && 'Manage ocean, air, ground, warehousing and special lifts services.'}
                       {activeTab === 'features' && 'Configure core features displayed on the main home screen.'}
                       {activeTab === 'careers' && 'Define open recruitment roles, location packages, requirements and perks.'}
                       {activeTab === 'news' && 'Publish project contract achievements, safety records, and fleet news.'}
                       {activeTab === 'faqs' && 'Edit operational FAQs shown on the client support panel.'}
                       {activeTab === 'testimonials' && 'Configure sliding client testimonial feedback displayed on the home page.'}
+                      {activeTab === 'promotions' && 'Edit popup announcements, timing parameters, call-to-actions, and campaign banner images.'}
+                      {activeTab === 'analytics' && 'Track unique visitors, page views, quote conversions, article popularity, and client search queries.'}
                     </p>
                   </div>
 
-                  {activeTab !== 'features' && activeTab !== 'quotes' && (
+                  {activeTab !== 'features' && activeTab !== 'quotes' && activeTab !== 'promotions' && activeTab !== 'analytics' && (
                     <button
                       onClick={() => startAddNew(activeTab)}
                       className="bg-[#0084C2] hover:bg-[#0070A4] text-white px-4 py-2 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center space-x-1.5 cursor-pointer"
@@ -770,60 +1108,237 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                   )}
                 </div>
 
-                {/* TAB 1: QUOTE REQUESTS */}
+                {/* TAB 1: INBOX & EMAIL MANAGEMENT HUB */}
                 {activeTab === 'quotes' && (
                   <div className="space-y-4">
+                    {/* Inbox Control Bar */}
+                    <div className="flex flex-col sm:flex-row justify-between items-center bg-slate-50 dark:bg-slate-900/60 p-4 border border-slate-200 dark:border-white/10 rounded-2xl gap-3">
+                      <div className="relative w-full sm:max-w-xs">
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Search inbox..."
+                          className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl py-2 px-3 pl-9 text-xs focus:outline-none focus:ring-1 focus:ring-brand-cyan"
+                        />
+                        <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                      </div>
+                      <div className="flex items-center space-x-2 w-full sm:w-auto shrink-0 justify-end">
+                        <button
+                          type="button"
+                          onClick={handleExportCSV}
+                          className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 cursor-pointer border border-slate-200 dark:border-white/10"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          <span>Export CSV</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowNewEmailModal(true)}
+                          className="w-full sm:w-auto bg-gradient-to-r from-sky-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm hover:shadow"
+                        >
+                          <Mail className="h-3.5 w-3.5" />
+                          <span>Compose Email</span>
+                        </button>
+                      </div>
+                    </div>
+
                     {quoteRequests.length === 0 ? (
                       <div className="text-center py-16 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl space-y-2">
-                        <MessageSquare className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto" />
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">No requests submitted yet</h3>
-                        <p className="text-xs text-slate-500">New leads from the quote submission forms will appear here.</p>
+                        <MessageSquare className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto animate-pulse" />
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">No messages in inbox</h3>
+                        <p className="text-xs text-slate-500">Contact form leads will appear here.</p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 gap-4">
-                        {quoteRequests.map((req) => (
-                          <div 
-                            key={req.id}
-                            className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all space-y-4"
-                          >
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100 dark:border-white/15">
-                              <div>
-                                <h3 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-white uppercase">{req.fullName || 'Anonymous Prospect'}</h3>
-                                <span className="text-[10px] text-slate-400 font-semibold uppercase font-mono">{req.emailOrPhone}</span>
-                              </div>
-                              <div className="flex items-center space-x-2.5 shrink-0">
-                                <span className="text-[10px] font-mono font-bold text-slate-400">
-                                  {req.createdAt ? new Date(req.createdAt).toLocaleString('en-US') : ''}
-                                </span>
-                                <select
-                                  value={req.status || 'Pending'}
-                                  onChange={(e) => updateQuoteRequestStatus(req.id, e.target.value)}
-                                  className={`text-xs font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-lg border focus:outline-none cursor-pointer ${
-                                    req.status === 'Resolved' || req.status === 'Completed'
-                                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
-                                      : req.status === 'In Discussion'
-                                      ? 'bg-sky-500/10 text-sky-400 border-sky-500/25'
-                                      : 'bg-rose-500/10 text-rose-400 border-rose-500/25 animate-pulse'
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                        {/* List Pane */}
+                        <div className="lg:col-span-5 space-y-2 max-h-[600px] overflow-y-auto pr-1 bg-slate-50/50 dark:bg-slate-950/20 p-2 rounded-2xl border border-slate-200 dark:border-white/10">
+                          {quoteRequests
+                            .filter(req => {
+                              const query = searchQuery.toLowerCase();
+                              return (
+                                req.fullName?.toLowerCase().includes(query) ||
+                                req.emailOrPhone?.toLowerCase().includes(query) ||
+                                req.service?.toLowerCase().includes(query) ||
+                                req.status?.toLowerCase().includes(query)
+                              );
+                            })
+                            .map((req) => {
+                              const isSelected = selectedQuoteId === req.id;
+                              return (
+                                <div
+                                  key={req.id}
+                                  onClick={() => {
+                                    setSelectedQuoteId(req.id);
+                                    setReplySubject(`Re: ${req.service || 'Logistics Inquiry'} - Gateway Logistics`);
+                                    setReplyBody('');
+                                    setEmailStatusFeedback('');
+                                  }}
+                                  className={`p-3.5 rounded-xl border transition-all cursor-pointer text-left space-y-1.5 ${
+                                    isSelected
+                                      ? 'bg-[#0084C2] border-sky-400/20 text-white shadow-sm'
+                                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-white/5 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5'
                                   }`}
                                 >
-                                  <option value="Pending" className="bg-slate-900 text-white">Pending</option>
-                                  <option value="In Discussion" className="bg-slate-900 text-white">In Discussion</option>
-                                  <option value="Completed" className="bg-slate-900 text-white">Resolved</option>
-                                </select>
-                              </div>
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-black uppercase tracking-tight block truncate max-w-[150px]">
+                                      {req.fullName || 'Anonymous Prospect'}
+                                    </span>
+                                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                                      req.status === 'Resolved' || req.status === 'Completed'
+                                        ? 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/25'
+                                        : req.status === 'In Discussion'
+                                        ? 'bg-sky-500/10 text-sky-500 dark:text-sky-400 border border-sky-500/25'
+                                        : req.status === 'Replied'
+                                        ? 'bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/25'
+                                        : 'bg-rose-500/10 text-rose-500 dark:text-rose-400 border border-rose-500/25 animate-pulse'
+                                    }`}>
+                                      {req.status || 'Pending'}
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] font-semibold flex justify-between items-center opacity-80">
+                                    <span className="font-mono">{req.emailOrPhone}</span>
+                                    <span>{req.createdAt ? new Date(req.createdAt).toLocaleDateString() : ''}</span>
+                                  </div>
+                                  <p className="text-[11px] font-medium truncate opacity-90">
+                                    {req.service}: {req.details || 'No details provided.'}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                        </div>
+
+                        {/* Reader & Composer Pane */}
+                        <div className="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-5 space-y-4 shadow-sm min-h-[500px] flex flex-col justify-between">
+                          {selectedQuoteId ? (
+                            (() => {
+                              const req = quoteRequests.find(q => q.id === selectedQuoteId);
+                              if (!req) return <p className="text-slate-400 text-xs text-center my-auto font-bold uppercase">Message Not Found</p>;
+                              return (
+                                <div className="space-y-4 flex-1 flex flex-col justify-between">
+                                  {/* Reader Pane Top Header */}
+                                  <div className="space-y-3 pb-3 border-b border-slate-100 dark:border-white/10">
+                                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                                      <div>
+                                        <h3 className="text-base font-black uppercase text-brand-navy dark:text-white tracking-tight">{req.fullName}</h3>
+                                        <div className="flex items-center space-x-2 text-slate-400 text-xs font-semibold mt-0.5">
+                                          <span className="font-mono">{req.emailOrPhone}</span>
+                                          <span>•</span>
+                                          <span>{req.createdAt ? new Date(req.createdAt).toLocaleString() : ''}</span>
+                                        </div>
+                                      </div>
+                                      
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase">Set Status:</span>
+                                        <select
+                                          value={req.status || 'Pending'}
+                                          onChange={(e) => updateQuoteRequestStatus(req.id, e.target.value)}
+                                          className="text-xs font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-brand-navy dark:text-white rounded-lg px-2 py-1.5 focus:outline-none cursor-pointer"
+                                        >
+                                          <option value="Pending">Pending</option>
+                                          <option value="In Discussion">In Discussion</option>
+                                          <option value="Replied">Replied</option>
+                                          <option value="Completed">Resolved</option>
+                                        </select>
+                                      </div>
+                                    </div>
+
+                                    {/* Original Message Box */}
+                                    <div className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-white/5 rounded-xl p-4 space-y-2">
+                                      <div className="flex items-center justify-between text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                        <span>Logistics Capability Requested:</span>
+                                        <span className="font-mono text-brand-cyan">{req.service}</span>
+                                      </div>
+                                      <p className="text-xs font-medium text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                                        {req.details || 'No details provided.'}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  {/* Replies History */}
+                                  {req.replies && req.replies.length > 0 && (
+                                    <div className="space-y-2.5 max-h-[160px] overflow-y-auto bg-slate-50/50 dark:bg-slate-950/20 p-3 rounded-xl border border-slate-200 dark:border-white/5 border-dashed">
+                                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 block">Outbound Communications History</span>
+                                      {req.replies.map((reply: any) => (
+                                        <div key={reply.id} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 p-2.5 rounded-lg space-y-1">
+                                          <div className="flex justify-between items-center text-[9px] text-slate-400 font-semibold font-mono">
+                                            <span>To: {reply.recipient}</span>
+                                            <span>{new Date(reply.sentAt).toLocaleString()}</span>
+                                          </div>
+                                          <div className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">{reply.subject}</div>
+                                          <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{reply.body}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* COMPOSER FORM */}
+                                  <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-white/10 flex-1 flex flex-col justify-end">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Compose Reply Mail</span>
+                                      {emailStatusFeedback && (
+                                        <span className="text-[10px] font-bold text-sky-500 dark:text-brand-cyan uppercase animate-pulse">{emailStatusFeedback}</span>
+                                      )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <input
+                                        type="text"
+                                        value={replySubject}
+                                        onChange={(e) => setReplySubject(e.target.value)}
+                                        placeholder="Subject"
+                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl py-2 px-3 text-xs focus:outline-none"
+                                      />
+                                      <textarea
+                                        value={replyBody}
+                                        onChange={(e) => setReplyBody(e.target.value)}
+                                        placeholder="Type your reply message here..."
+                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl py-2.5 px-3 text-xs min-h-[130px] focus:outline-none leading-relaxed"
+                                      />
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="flex justify-between items-center gap-2">
+                                      <button
+                                        type="button"
+                                        disabled={isGeneratingAI}
+                                        onClick={handleDraftWithGemini}
+                                        className="flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-sky-500 to-indigo-600 text-white rounded-xl text-xs font-bold hover:shadow active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
+                                      >
+                                        {isGeneratingAI ? (
+                                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                          <Sparkles className="h-3.5 w-3.5" />
+                                        )}
+                                        <span>Draft with Gemini AI</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={isSendingEmail || !replyBody}
+                                        onClick={handleSendEmailReply}
+                                        className="flex items-center space-x-1.5 px-4.5 py-2 bg-[#0084C2] hover:bg-[#0070A4] text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
+                                      >
+                                        {isSendingEmail ? (
+                                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                          <Send className="h-3.5 w-3.5" />
+                                        )}
+                                        <span>Send Reply</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()
+                          ) : (
+                            <div className="text-center my-auto py-16 space-y-2">
+                              <Mail className="h-12 w-12 text-slate-300 dark:text-slate-700 mx-auto" />
+                              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Select an conversation</h3>
+                              <p className="text-xs text-slate-500">Pick any client request from the inbox pane to view details and draft replies.</p>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                              <div className="md:col-span-1 space-y-0.5">
-                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Requested Category</span>
-                                <span className="text-xs block font-bold text-slate-700 dark:text-slate-200 uppercase font-mono">{req.service}</span>
-                              </div>
-                              <div className="md:col-span-2 space-y-0.5">
-                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Details & Logistics Scope</span>
-                                <p className="text-xs text-slate-600 dark:text-slate-300 font-medium whitespace-pre-wrap">{req.details || 'No details provided.'}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1095,10 +1610,569 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                     )}
                   </div>
                 )}
+
+                {/* TAB 8: PROMOTIONS */}
+                {activeTab === 'promotions' && (
+                  <form onSubmit={handleSavePromotions} className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 text-left">
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-white/10">
+                      <div>
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Campaign Promotion Popup</h3>
+                        <p className="text-xs text-slate-500">Configure global announcements and popups shown to users.</p>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs font-bold text-slate-400 uppercase">Popup Status:</span>
+                        <button
+                          type="button"
+                          onClick={() => setPromoForm({ ...promoForm, active: !promoForm.active })}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer focus:outline-none ${
+                            promoForm.active ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
+                          }`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            promoForm.active ? 'translate-x-6' : 'translate-x-1'
+                          }`} />
+                        </button>
+                        <span className={`text-xs font-bold uppercase tracking-wider ${
+                          promoForm.active ? 'text-emerald-500' : 'text-slate-400'
+                        }`}>
+                          {promoForm.active ? 'Active' : 'Disabled'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">Popup Headline / Title</label>
+                        <input
+                          type="text"
+                          required
+                          value={promoForm.title}
+                          onChange={(e) => setPromoForm({ ...promoForm, title: e.target.value })}
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-brand-navy dark:text-white rounded-xl py-2.5 px-4 text-xs font-bold"
+                          placeholder="e.g. Major Haulage Campaign"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">Show Delay (Seconds spent on page)</label>
+                        <input
+                          type="number"
+                          required
+                          min={0}
+                          value={promoForm.delaySeconds}
+                          onChange={(e) => setPromoForm({ ...promoForm, delaySeconds: parseInt(e.target.value) || 0 })}
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-brand-navy dark:text-white rounded-xl py-2.5 px-4 text-xs font-mono"
+                          placeholder="e.g. 5"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">Popup Message Details</label>
+                      <textarea
+                        required
+                        value={promoForm.message}
+                        onChange={(e) => setPromoForm({ ...promoForm, message: e.target.value })}
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-brand-navy dark:text-white rounded-xl py-2.5 px-4 text-xs min-h-[100px] leading-relaxed"
+                        placeholder="Describe the campaign benefits, discounts or details..."
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">Button Call-To-Action (CTA) Label</label>
+                        <input
+                          type="text"
+                          required
+                          value={promoForm.ctaText}
+                          onChange={(e) => setPromoForm({ ...promoForm, ctaText: e.target.value })}
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-brand-navy dark:text-white rounded-xl py-2.5 px-4 text-xs"
+                          placeholder="e.g. Inquire Now"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">Destination View / Page</label>
+                        <select
+                          value={promoForm.ctaPage}
+                          onChange={(e) => setPromoForm({ ...promoForm, ctaPage: e.target.value })}
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-brand-navy dark:text-white rounded-xl py-2.5 px-4 text-xs focus:outline-none cursor-pointer"
+                        >
+                          <option value="contact">Contact & Inquiries</option>
+                          <option value="services">Logistics Capabilities</option>
+                          <option value="careers">Open Positions</option>
+                          <option value="news">News & Bulletins</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <ImageUploader
+                        value={promoForm.imageUrl}
+                        onChange={(val) => setPromoForm({ ...promoForm, imageUrl: val })}
+                        label="Promotion Cover Image (URL or Local Upload)"
+                        placeholder="https://images.unsplash.com/photo-..."
+                      />
+                    </div>
+
+                    {/* Submit Bar */}
+                    <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-white/10">
+                      {promoSaveFeedback ? (
+                        <span className="text-xs font-bold text-sky-500 dark:text-brand-cyan uppercase animate-pulse">{promoSaveFeedback}</span>
+                      ) : (
+                        <div />
+                      )}
+                      <button
+                        type="submit"
+                        disabled={isSavingPromo}
+                        className="px-4.5 py-2.5 bg-[#0084C2] hover:bg-[#0070A4] text-white text-xs font-bold rounded-xl tracking-wider uppercase transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isSavingPromo ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Save className="h-4 w-4" />
+                        )}
+                        <span>Save Settings</span>
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* TAB 9: ANALYTICS & PERFORMANCE SUMMARY */}
+                {activeTab === 'analytics' && (
+                  <div className="space-y-6 text-left">
+                    {/* Loader */}
+                    {isLoadingAnalytics && (
+                      <div className="flex flex-col items-center justify-center py-20 space-y-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl">
+                        <RefreshCw className="h-8 w-8 text-[#0084C2] animate-spin" />
+                        <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Compiling Metrics Summary...</span>
+                      </div>
+                    )}
+
+                    {!isLoadingAnalytics && analyticsSummary && (
+                      (() => {
+                        const data = analyticsRange === '7' ? analyticsSummary.summary7 : analyticsSummary.summary30;
+                        const timeline = data.timeline || [];
+                        const maxVal = Math.max(...timeline.map((p: any) => p.visitors), 1);
+                        
+                        // Compute SVG Path points for visitors trend
+                        const pathD = timeline.map((p: any, idx: number) => {
+                          const x = (idx / Math.max(timeline.length - 1, 1)) * 420 + 20;
+                          const y = 140 - (p.visitors / maxVal) * 100;
+                          return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
+                        }).join(' ');
+
+                        const fillPathD = timeline.length > 0
+                          ? `${pathD} L ${(timeline.length - 1) / Math.max(timeline.length - 1, 1) * 420 + 20} 140 L 20 140 Z`
+                          : '';
+
+                        return (
+                          <div className="space-y-6">
+                            {/* Timeframe selector header */}
+                            <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-900/60 p-4 border border-slate-200 dark:border-white/10 rounded-2xl">
+                              <div>
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Date Range Comparison</h3>
+                                <p className="text-[10px] text-slate-500 font-medium">Toggle dashboard aggregates below.</p>
+                              </div>
+                              <div className="flex bg-slate-200 dark:bg-slate-950 p-1 rounded-xl border border-slate-300 dark:border-white/5">
+                                <button
+                                  type="button"
+                                  onClick={() => setAnalyticsRange('7')}
+                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all ${
+                                    analyticsRange === '7'
+                                      ? 'bg-[#0084C2] text-white shadow-sm'
+                                      : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white'
+                                  }`}
+                                >
+                                  7 Days
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setAnalyticsRange('30')}
+                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all ${
+                                    analyticsRange === '30'
+                                      ? 'bg-[#0084C2] text-white shadow-sm'
+                                      : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white'
+                                  }`}
+                                >
+                                  30 Days
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Stat Cards Grid */}
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                              {/* Sessions */}
+                              <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4.5 space-y-1.5 shadow-sm">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Total Visitors</span>
+                                  <Users className="h-4 w-4 text-[#0084C2]" />
+                                </div>
+                                <div className="text-xl font-black font-display text-brand-navy dark:text-white">
+                                  {data.visitors.toLocaleString()}
+                                </div>
+                                <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium">Unique visitor sessions logged.</p>
+                              </div>
+
+                              {/* Page views */}
+                              <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4.5 space-y-1.5 shadow-sm">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Page Impressions</span>
+                                  <Eye className="h-4 w-4 text-[#0084C2]" />
+                                </div>
+                                <div className="text-xl font-black font-display text-brand-navy dark:text-white">
+                                  {data.pageviews.toLocaleString()}
+                                </div>
+                                <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium">Total screen clicks recorded.</p>
+                              </div>
+
+                              {/* Quote Submissions */}
+                              <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4.5 space-y-1.5 shadow-sm">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Quote Proposals</span>
+                                  <MessageSquare className="h-4 w-4 text-[#0084C2]" />
+                                </div>
+                                <div className="text-xl font-black font-display text-brand-navy dark:text-white">
+                                  {data.submissions.toLocaleString()}
+                                </div>
+                                <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium">Forms submitted by prospects.</p>
+                              </div>
+
+                              {/* Conversion Rate */}
+                              <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4.5 space-y-1.5 shadow-sm">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Conversion Rate</span>
+                                  <CheckCircle className="h-4 w-4 text-emerald-400" />
+                                </div>
+                                <div className="text-xl font-black font-display text-emerald-500 dark:text-emerald-400">
+                                  {data.conversionRate}%
+                                </div>
+                                <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium">Quote submission conversions.</p>
+                              </div>
+                            </div>
+
+                            {/* Charts Grid */}
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                              {/* Visitor Trend Line Chart */}
+                              <div className="lg:col-span-7 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-sm space-y-3 flex flex-col justify-between">
+                                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/5">
+                                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Daily Traffic Logs</h4>
+                                  <span className="text-[9px] font-mono font-bold text-slate-400">{analyticsRange === '7' ? 'Last 7 Days' : 'Last 30 Days'}</span>
+                                </div>
+                                {timeline.length > 0 ? (
+                                  <div className="relative pt-4">
+                                    <svg className="w-full h-40 overflow-visible" viewBox="0 0 460 150">
+                                      <defs>
+                                        <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                                          <stop offset="0%" stopColor="#0084C2" stopOpacity="0.4" />
+                                          <stop offset="100%" stopColor="#0084C2" stopOpacity="0.0" />
+                                        </linearGradient>
+                                      </defs>
+                                      {/* Horizontal Gridlines */}
+                                      <line x1="20" y1="40" x2="440" y2="40" className="stroke-slate-100 dark:stroke-white/5" strokeDasharray="4 4" />
+                                      <line x1="20" y1="90" x2="440" y2="90" className="stroke-slate-100 dark:stroke-white/5" strokeDasharray="4 4" />
+                                      <line x1="20" y1="140" x2="440" y2="140" className="stroke-slate-200 dark:stroke-white/10" />
+
+                                      {/* Area Fill */}
+                                      {fillPathD && (
+                                        <path d={fillPathD} fill="url(#chartGradient)" />
+                                      )}
+                                      
+                                      {/* Trend Line */}
+                                      {pathD && (
+                                        <path
+                                          d={pathD}
+                                          fill="none"
+                                          className="stroke-[#0084C2] dark:stroke-brand-cyan"
+                                          strokeWidth="2.5"
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                        />
+                                      )}
+
+                                      {/* Interactive Points */}
+                                      {timeline.map((p: any, idx: number) => {
+                                        const x = (idx / Math.max(timeline.length - 1, 1)) * 420 + 20;
+                                        const y = 140 - (p.visitors / maxVal) * 100;
+                                        return (
+                                          <g key={idx} className="group/dot cursor-pointer">
+                                            <circle
+                                              cx={x}
+                                              cy={y}
+                                              r="4"
+                                              className="fill-white stroke-[#0084C2] dark:stroke-brand-cyan cursor-pointer transition-all group-hover/dot:r-6"
+                                              strokeWidth="2"
+                                            />
+                                            <title>{`${p.date}: ${p.visitors} visitors`}</title>
+                                          </g>
+                                        );
+                                      })}
+                                    </svg>
+                                    <div className="flex justify-between text-[8px] font-semibold text-slate-400 font-mono mt-1 px-4">
+                                      <span>{timeline[0]?.date}</span>
+                                      <span>{timeline[Math.floor(timeline.length / 2)]?.date}</span>
+                                      <span>{timeline[timeline.length - 1]?.date}</span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="my-auto py-10 text-center text-xs text-slate-400">Insufficient log data.</div>
+                                )}
+                              </div>
+
+                              {/* Page Views Breakdown */}
+                              <div className="lg:col-span-5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-sm space-y-3.5">
+                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 pb-2 border-b border-slate-100 dark:border-white/5">Popular Navigation Screens</h4>
+                                <div className="space-y-2.5">
+                                  {Object.entries(data.viewsByPage || {})
+                                    .sort((a: any, b: any) => b[1] - a[1])
+                                    .slice(0, 6)
+                                    .map(([page, count]: any) => {
+                                      const percent = data.pageviews > 0 ? Math.round((count / data.pageviews) * 100) : 0;
+                                      return (
+                                        <div key={page} className="space-y-1">
+                                          <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-tight">
+                                            <span className="font-mono text-slate-500 dark:text-slate-400">{page} view</span>
+                                            <span className="text-[#0084C2] dark:text-brand-cyan">{count.toLocaleString()} ({percent}%)</span>
+                                          </div>
+                                          <div className="w-full bg-slate-100 dark:bg-slate-950 rounded-full h-1.5 overflow-hidden">
+                                            <div
+                                              style={{ width: `${percent}%` }}
+                                              className="bg-gradient-to-r from-sky-400 to-[#0084C2] h-full rounded-full"
+                                            />
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  {Object.keys(data.viewsByPage || {}).length === 0 && (
+                                    <div className="text-center py-8 text-xs text-slate-400">No screen metrics tracked yet.</div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Searches & Reads tables */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                              {/* Top Search Queries */}
+                              <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-sm space-y-3">
+                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 pb-2 border-b border-slate-100 dark:border-white/5">Top Customer Inquiries (Search)</h4>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-left text-xs">
+                                    <thead>
+                                      <tr className="text-slate-400 text-[9px] uppercase tracking-wider border-b border-slate-100 dark:border-white/5">
+                                        <th className="pb-2 font-bold">Search Phrase</th>
+                                        <th className="pb-2 text-right font-bold">Inquiry Count</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                                      {data.searches.map((s: any, idx: number) => (
+                                        <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-white/5">
+                                          <td className="py-2.5 font-bold uppercase tracking-tight text-slate-700 dark:text-slate-300 font-mono text-[10px]">
+                                            "{s.term}"
+                                          </td>
+                                          <td className="py-2.5 text-right font-black text-slate-600 dark:text-slate-300 font-mono">
+                                            {s.count}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                      {data.searches.length === 0 && (
+                                        <tr>
+                                          <td colSpan={2} className="py-8 text-center text-slate-400 text-xs font-semibold">No queries registered.</td>
+                                        </tr>
+                                      )}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+
+                              {/* Top Article Reads */}
+                              <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-sm space-y-3">
+                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 pb-2 border-b border-slate-100 dark:border-white/5">Most Popular Articles & Bulletins</h4>
+                                <div className="space-y-2">
+                                  {data.articleReads.map((art: any, idx: number) => (
+                                    <div key={idx} className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-white/5 border-dashed last:border-0">
+                                      <div className="max-w-[240px] truncate text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-tight">
+                                        {art.articleId}
+                                      </div>
+                                      <div className="flex items-center space-x-1.5 shrink-0">
+                                        <span className="text-[10px] font-mono font-black text-[#0084C2] dark:text-brand-cyan">{art.count}</span>
+                                        <span className="text-[9px] font-bold uppercase text-slate-400">reads</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {data.articleReads.length === 0 && (
+                                    <div className="text-center py-8 text-slate-400 text-xs font-semibold">No articles read metrics logged.</div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()
+                    )}
+                  </div>
+                )}
               </motion.div>
             )}
 
-            {/* EDITING / ADDING SECTION FORMS */}
+            {/* TAB 10: LIVE CHAT INBOX */}
+            {activeTab === 'livechat' && (
+              <motion.div
+                key="livechat"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-4"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono tracking-widest text-[#0084C2] font-black uppercase">Support Communications</span>
+                    <h2 className="text-xl font-display font-black uppercase tracking-tight mt-0.5">Live Chat Inbox</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Reply directly to visitors chatting from the website. Auto-refreshes every 5 seconds.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setIsLoadingChat(true); fetchChatSessions().finally(() => setIsLoadingChat(false)); }}
+                    className="flex items-center space-x-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${isLoadingChat ? 'animate-spin' : ''}`} />
+                    <span>Refresh</span>
+                  </button>
+                </div>
+
+                {isLoadingChat && chatSessions.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 space-y-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl">
+                    <RefreshCw className="h-8 w-8 text-[#0084C2] animate-spin" />
+                    <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Loading conversations...</span>
+                  </div>
+                ) : chatSessions.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 space-y-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl">
+                    <MessageSquare className="h-12 w-12 text-slate-300 dark:text-slate-700" />
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">No conversations yet</h3>
+                    <p className="text-xs text-slate-500">Visitor live chat messages will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4 h-[600px]">
+                    {/* Sessions List */}
+                    <div className="md:col-span-2 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden flex flex-col">
+                      <div className="px-4 py-3 border-b border-slate-100 dark:border-white/10 flex-shrink-0">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Active Conversations ({chatSessions.length})</span>
+                      </div>
+                      <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-white/5">
+                        {chatSessions.map(session => (
+                          <button
+                            key={session.sessionId}
+                            type="button"
+                            onClick={() => setSelectedChatSession(session.sessionId)}
+                            className={`w-full text-left px-4 py-3.5 transition-all cursor-pointer ${
+                              selectedChatSession === session.sessionId
+                                ? 'bg-[#0084C2]/10 border-l-2 border-[#0084C2]'
+                                : 'hover:bg-slate-50 dark:hover:bg-white/5'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2.5">
+                                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#0084C2] to-indigo-600 flex items-center justify-center text-white text-xs font-black flex-shrink-0">
+                                  {session.visitorName?.[0]?.toUpperCase() || 'V'}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-black text-slate-800 dark:text-white truncate">{session.visitorName}</p>
+                                  <p className="text-[10px] text-slate-400 truncate">{session.lastMessage?.message?.slice(0, 40)}...</p>
+                                </div>
+                              </div>
+                              {session.unread > 0 && (
+                                <span className="bg-red-500 text-white text-[9px] font-black rounded-full h-4.5 w-4.5 flex items-center justify-center flex-shrink-0">{session.unread}</span>
+                              )}
+                            </div>
+                            <p className="text-[9px] text-slate-400 font-mono mt-1.5 pl-10">
+                              {session.lastMessage ? new Date(session.lastMessage.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Message Panel */}
+                    <div className="md:col-span-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl flex flex-col overflow-hidden">
+                      {!selectedChatSession ? (
+                        <div className="flex-1 flex flex-col items-center justify-center space-y-3 p-8">
+                          <MessageSquare className="h-12 w-12 text-slate-300 dark:text-slate-700" />
+                          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Select a conversation</h3>
+                          <p className="text-xs text-slate-500 text-center">Pick a visitor session from the left to read and reply to their messages.</p>
+                        </div>
+                      ) : (() => {
+                        const session = chatSessions.find(s => s.sessionId === selectedChatSession);
+                        return (
+                          <>
+                            {/* Chat Header */}
+                            <div className="flex items-center space-x-3 px-4 py-3 border-b border-slate-100 dark:border-white/10 flex-shrink-0 bg-slate-50 dark:bg-white/5">
+                              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#0084C2] to-indigo-600 flex items-center justify-center text-white text-sm font-black">
+                                {session?.visitorName?.[0]?.toUpperCase() || 'V'}
+                              </div>
+                              <div>
+                                <p className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-tight">{session?.visitorName || 'Visitor'}</p>
+                                <p className="text-[9px] text-slate-400 font-mono">{selectedChatSession}</p>
+                              </div>
+                              <div className="ml-auto flex items-center space-x-1">
+                                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span className="text-[10px] text-emerald-500 font-bold">Live</span>
+                              </div>
+                            </div>
+
+                            {/* Messages */}
+                            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                              {sessionMessages.map(msg => (
+                                <div key={msg.id} className={`flex items-end space-x-2 ${
+                                  msg.sender === 'admin' ? 'flex-row-reverse space-x-reverse' : ''
+                                }`}>
+                                  <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-black text-white flex-shrink-0 ${
+                                    msg.sender === 'admin' ? 'bg-[#0084C2]' : 'bg-slate-400 dark:bg-slate-600'
+                                  }`}>
+                                    {msg.sender === 'admin' ? 'G' : (session?.visitorName?.[0]?.toUpperCase() || 'V')}
+                                  </div>
+                                  <div className={`max-w-[72%] rounded-2xl px-3.5 py-2.5 ${
+                                    msg.sender === 'admin'
+                                      ? 'bg-[#0084C2] text-white rounded-br-sm'
+                                      : 'bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-white rounded-bl-sm'
+                                  }`}>
+                                    <p className="text-xs font-medium leading-relaxed">{msg.message}</p>
+                                    <p className={`text-[9px] mt-1 ${
+                                      msg.sender === 'admin' ? 'text-white/50' : 'text-slate-400'
+                                    }`}>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                  </div>
+                                </div>
+                              ))}
+                              <div ref={chatAdminBottomRef} />
+                            </div>
+
+                            {/* Reply Input */}
+                            <div className="flex-shrink-0 p-3 border-t border-slate-100 dark:border-white/10 flex items-end space-x-2">
+                              <textarea
+                                value={adminReply}
+                                onChange={e => setAdminReply(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendChatReply(); } }}
+                                placeholder="Type your reply to the visitor…"
+                                rows={2}
+                                className="flex-1 bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-[#0084C2] transition-colors resize-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleSendChatReply}
+                                disabled={!adminReply.trim() || isSendingChatReply}
+                                className="h-10 w-10 flex items-center justify-center rounded-xl bg-[#0084C2] hover:bg-[#0070A4] text-white transition-all cursor-pointer active:scale-95 disabled:opacity-40 flex-shrink-0 shadow"
+                              >
+                                {isSendingChatReply ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                              </button>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+
             {(editingItem || isAddingNew) && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -1458,13 +2532,18 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Full Article Body Content</label>
-                      <textarea
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-display">Full Article Body Content (Rich Formatting)</label>
+                      <RichTextEditor
                         value={newsForm.content || ''}
-                        onChange={(e) => setNewsForm({ ...newsForm, content: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 dark:bg-slate-950/40 dark:border-white/10 rounded-xl py-2.5 px-4 text-xs min-h-[220px] leading-relaxed"
-                        placeholder="Write out the entire bulletin content here. Paragraphs are fully preserved..."
-                        required
+                        onChange={(val) => setNewsForm({ ...newsForm, content: val })}
+                        title={newsForm.title}
+                        excerpt={newsForm.excerpt}
+                        onAIUpdate={(newTitle, newExcerpt, newContent) => setNewsForm({
+                          ...newsForm,
+                          title: newTitle,
+                          excerpt: newExcerpt,
+                          content: newContent
+                        })}
                       />
                     </div>
 
@@ -1781,6 +2860,113 @@ CREATE POLICY "Allow all quote_requests" ON quote_requests FOR ALL USING (true);
                 >
                   I've Executed the SQL!
                 </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* COMPOSE NEW EMAIL MODAL OVERLAY */}
+        {showNewEmailModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden text-left space-y-4"
+            >
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-white/10">
+                <div className="flex items-center space-x-2">
+                  <Mail className="h-5 w-5 text-[#0084C2]" />
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Compose Outbound Email</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowNewEmailModal(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition-all cursor-pointer"
+                >
+                  <X className="h-4.5 w-4.5" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">To (Recipient Email)</label>
+                  <input
+                    type="email"
+                    required
+                    value={newEmailRecipient}
+                    onChange={(e) => setNewEmailRecipient(e.target.value)}
+                    placeholder="client@domain.com"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-brand-navy dark:text-white rounded-xl py-2 px-3 text-xs focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Subject</label>
+                  <input
+                    type="text"
+                    required
+                    value={newEmailSubject}
+                    onChange={(e) => setNewEmailSubject(e.target.value)}
+                    placeholder="Logistics Proposal & Rates - Gateway Logistics"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-brand-navy dark:text-white rounded-xl py-2 px-3 text-xs focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Message Content</label>
+                  <textarea
+                    required
+                    value={newEmailBody}
+                    onChange={(e) => setNewEmailBody(e.target.value)}
+                    placeholder="Write your email body..."
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-brand-navy dark:text-white rounded-xl py-2.5 px-3 text-xs min-h-[180px] focus:outline-none leading-relaxed"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-white/10">
+                <button
+                  type="button"
+                  disabled={newEmailAIActive || !newEmailBody}
+                  onClick={handleNewEmailAIImprove}
+                  className="flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-sky-500 to-indigo-600 text-white rounded-xl text-xs font-bold hover:shadow active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {newEmailAIActive ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                  <span>{newEmailAIActive ? 'AI Rewriting...' : 'Polished by Gemini'}</span>
+                </button>
+
+                <div className="flex space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewEmailModal(false)}
+                    className="px-4.5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-white text-xs font-bold rounded-xl tracking-wider uppercase transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSendingEmail || !newEmailRecipient || !newEmailBody}
+                    onClick={handleSendComposeNewEmail}
+                    className="px-4.5 py-2.5 bg-[#0084C2] hover:bg-[#0070A4] text-white text-xs font-bold rounded-xl tracking-wider uppercase transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSendingEmail ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Send className="h-3.5 w-3.5" />
+                    )}
+                    <span>Send Email</span>
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
