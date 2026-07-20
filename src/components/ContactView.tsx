@@ -33,20 +33,43 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
   const [quoteDetails, setQuoteDetails] = useState('');
   const [formSubmitted, setFormSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!fullName || !email || !phone) return;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
-    // Simulate submission
-    setFormSubmitted(true);
-    setTimeout(() => {
-      setFormSubmitted(false);
-      setFullName('');
-      setEmail('');
-      setPhone('');
-      setMessage('');
-      setQuoteDetails('');
-    }, 5000);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullName || (!email && !phone)) return;
+    setIsSubmitting(true);
+    setSubmitError('');
+
+    try {
+      const res = await fetch('/api/quote-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName,
+          emailOrPhone: email || phone,
+          service: activeTab === 'quote' ? serviceType : 'General Inquiry',
+          details: activeTab === 'quote' ? quoteDetails : message,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Submission failed');
+
+      setFormSubmitted(true);
+      setTimeout(() => {
+        setFormSubmitted(false);
+        setFullName('');
+        setEmail('');
+        setPhone('');
+        setMessage('');
+        setQuoteDetails('');
+      }, 5000);
+    } catch (err) {
+      setSubmitError('Failed to send. Please try again or contact us directly.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleToggleFaq = (idx: number) => {
@@ -299,21 +322,30 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
                       </div>
                     </motion.div>
                   ) : (
-                    <motion.button
-                      key="submit-btn"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      type="submit"
-                      className="w-full bg-brand-gold hover:bg-brand-gold-hover text-brand-navy font-display font-extrabold py-4 rounded-xl text-xs uppercase tracking-widest transition-colors cursor-pointer flex items-center justify-center space-x-2 shadow-md shadow-brand-gold/15"
-                    >
-                      <Send className="h-4 w-4" />
-                      <span>{activeTab === 'general' 
-                        ? (language === 'en' ? 'Send Query Memo' : 'Envoyer la note') 
-                        : (language === 'en' ? 'Submit Pricing Specification' : 'Soumettre le devis')}</span>
-                    </motion.button>
+                    <div className="space-y-2">
+                      <motion.button
+                        key="submit-btn"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
+                        whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="w-full bg-brand-gold hover:bg-brand-gold-hover text-brand-navy font-display font-extrabold py-4 rounded-xl text-xs uppercase tracking-widest transition-colors cursor-pointer flex items-center justify-center space-x-2 shadow-md shadow-brand-gold/15 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        <Send className="h-4 w-4" />
+                        <span>{isSubmitting
+                          ? (language === 'en' ? 'Sending...' : 'Envoi...')
+                          : activeTab === 'general'
+                            ? (language === 'en' ? 'Send Query Memo' : 'Envoyer la note')
+                            : (language === 'en' ? 'Submit Pricing Specification' : 'Soumettre le devis')
+                        }</span>
+                      </motion.button>
+                      {submitError && (
+                        <p className="text-xs text-red-500 text-center font-medium">{submitError}</p>
+                      )}
+                    </div>
                   )}
                 </AnimatePresence>
 

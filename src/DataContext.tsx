@@ -139,12 +139,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           sessionStorage.setItem('isAdmin', 'true');
           return true;
         }
+      } else {
+        // Fallback for static hosting where API is unavailable
+        if (password === 'Gateway26' || password === 'admin123') {
+          setIsAdminLoggedIn(true);
+          sessionStorage.setItem('isAdmin', 'true');
+          return true;
+        }
       }
       return false;
     } catch (err) {
       console.error('Login request failed:', err);
       // Fallback for purely client-side or before server is fully started
-      if (password === 'admin123') {
+      if (password === 'Gateway26' || password === 'admin123') {
         setIsAdminLoggedIn(true);
         sessionStorage.setItem('isAdmin', 'true');
         return true;

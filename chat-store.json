@@ -1,0 +1,47 @@
+[
+  {
+    "id": "msg-1784423233740-jomsjh",
+    "sessionId": "sess-1784421684114-5rbfygak",
+    "visitorName": "Site Visitor",
+    "message": "hey",
+    "sender": "visitor",
+    "createdAt": "2026-07-19T01:07:13.740Z",
+    "read": false
+  },
+  {
+    "id": "msg-1784422675649-g1djuu",
+    "sessionId": "sess-1784421684114-5rbfygak",
+    "visitorName": "Site Visitor",
+    "message": "whos gateway?",
+    "sender": "visitor",
+    "createdAt": "2026-07-19T00:57:55.649Z",
+    "read": false
+  },
+  {
+    "id": "reply-1784422399116-f40xj5",
+    "sessionId": "sess-1784421684114-5rbfygak",
+    "visitorName": "Gateway Support",
+    "message": "hi how can we help you?",
+    "sender": "admin",
+    "createdAt": "2026-07-19T00:53:19.116Z",
+    "read": true
+  },
+  {
+    "id": "msg-1784422347218-9kheh2",
+    "sessionId": "sess-1784421684114-5rbfygak",
+    "visitorName": "Site Visitor",
+    "message": "hey",
+    "sender": "visitor",
+    "createdAt": "2026-07-19T00:52:27.218Z",
+    "read": false
+  },
+  {
+    "id": "msg-1784421813867-1iyegp",
+    "sessionId": "sess-1784421684114-5rbfygak",
+    "visitorName": "Joseph",
+    "message": "Hi please i need help with moving my logs",
+    "sender": "visitor",
+    "createdAt": "2026-07-19T00:43:33.867Z",
+    "read": false
+  }
+]

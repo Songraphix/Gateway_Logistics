@@ -1,0 +1,99 @@
+[
+  {
+    "id": "q-1784415960503-825",
+    "fullName": "Digba Kofi Sando",
+    "emailOrPhone": "digbajoseph5@gmail.com",
+    "service": "General Inquiry",
+    "details": "TESTING",
+    "status": "Replied",
+    "createdAt": "2026-07-18T23:06:00.503Z",
+    "replies": [
+      {
+        "id": "rep-1784419766809",
+        "recipient": "digbajoseph5@gmail.com",
+        "subject": "Re: General Inquiry - Gateway Logistics",
+        "body": "testing",
+        "sentAt": "2026-07-19T00:09:26.809Z"
+      },
+      {
+        "id": "rep-1784420227235",
+        "recipient": "digbajoseph5@gmail.com",
+        "subject": "Re: General Inquiry - Gateway Logistics",
+        "body": "testing",
+        "sentAt": "2026-07-19T00:17:07.235Z"
+      }
+    ]
+  },
+  {
+    "id": "q-1784414706380-95",
+    "fullName": "Joseph Digba",
+    "emailOrPhone": "songraphix@gmail.com",
+    "service": "General Inquiry",
+    "details": "TESTTIINNGGG\n",
+    "status": "Replied",
+    "createdAt": "2026-07-18T22:45:06.381Z"
+  },
+  {
+    "id": "q-1784413848822-876",
+    "fullName": "Joseph Digba",
+    "emailOrPhone": "digbajoseph5@gmail.com",
+    "service": "General Inquiry",
+    "details": "testing\n",
+    "status": "Pending",
+    "createdAt": "2026-07-18T22:30:48.822Z"
+  },
+  {
+    "id": "q-1784407805256-946",
+    "fullName": "Joseph Digba",
+    "emailOrPhone": "digbajoseph5@gmail.com",
+    "service": "ocean-freight",
+    "details": "40ft",
+    "status": "Pending",
+    "createdAt": "2026-07-18T20:50:05.256Z"
+  },
+  {
+    "id": "q-1784407776940-683",
+    "fullName": "Joseph Digba",
+    "emailOrPhone": "digbajoseph5@gmail.com",
+    "service": "General Inquiry",
+    "details": "testing",
+    "status": "Pending",
+    "createdAt": "2026-07-18T20:49:36.940Z"
+  },
+  {
+    "id": "q-1784407353832-608",
+    "fullName": "Joseph Digba",
+    "emailOrPhone": "digbajoseph5@gmail.com",
+    "service": "ocean-freight",
+    "details": "40ft",
+    "status": "Pending",
+    "createdAt": "2026-07-18T20:42:33.832Z"
+  },
+  {
+    "id": "q-1784407330844-316",
+    "fullName": "Joseph Digba",
+    "emailOrPhone": "digbajoseph5@gmail.com",
+    "service": "General Inquiry",
+    "details": "testing\n",
+    "status": "Pending",
+    "createdAt": "2026-07-18T20:42:10.844Z"
+  },
+  {
+    "id": "q-1784406817800-690",
+    "fullName": "Joseph Digba",
+    "emailOrPhone": "digbajoseph5@gmail.com",
+    "service": "ocean-freight",
+    "details": "40FT",
+    "status": "Pending",
+    "createdAt": "2026-07-18T20:33:37.800Z"
+  },
+  {
+    "id": "q-1784406755490-714",
+    "fullName": "Joseph Digba",
+    "emailOrPhone": "digbajoseph5@gmail.com",
+    "service": "General Inquiry",
+    "details": "TESTING...\n",
+    "status": "Pending",
+    "createdAt": "2026-07-18T20:32:35.491Z"
+  }
+]

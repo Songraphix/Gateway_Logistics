@@ -20,7 +20,7 @@ interface NewsViewProps {
 
 export default function NewsView({ onNavigate }: NewsViewProps) {
   const { language, translateNews } = useLanguage();
-  const { newsArticles } = useData();
+  const { newsArticles, trackEvent } = useData();
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
@@ -28,6 +28,15 @@ export default function NewsView({ onNavigate }: NewsViewProps) {
   // Newsletter Signup State
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterSubmitted, setNewsletterSubmitted] = useState(false);
+
+  React.useEffect(() => {
+    if (searchQuery.trim().length >= 3) {
+      const timer = setTimeout(() => {
+        trackEvent('search', searchQuery.trim());
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [searchQuery]);
 
   const categories = ['All', 'Company News', 'Industry Insights', 'Safety & Operations', 'Project Spotlights'];
 
@@ -192,7 +201,10 @@ export default function NewsView({ onNavigate }: NewsViewProps) {
 
                     <div className="pt-4 border-t border-slate-200 dark:border-white/10 flex">
                       <button
-                        onClick={() => setSelectedArticle(art)}
+                        onClick={() => {
+                          setSelectedArticle(art);
+                          trackEvent('article_read', art.title);
+                        }}
                         className="text-xs font-black font-display uppercase tracking-wider text-[#0084C2] hover:text-[#005B9E] dark:text-[#00e5ff] dark:hover:text-brand-cyan transition-colors flex items-center space-x-2 cursor-pointer"
                       >
                         <span>{language === 'en' ? 'Examine Full Bulletin' : 'Examiner le bulletin complet'}</span>
