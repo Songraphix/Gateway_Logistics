@@ -1862,6 +1862,26 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                       </div>
                     )}
 
+                    {!isLoadingAnalytics && !analyticsSummary && (
+                      <div className="flex flex-col items-center justify-center py-20 space-y-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl text-center">
+                        <AlertCircle className="h-8 w-8 text-rose-500" />
+                        <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Analytics Data Unavailable</span>
+                        <p className="text-[10px] text-slate-500 max-w-xs mx-auto">Failed to load performance metrics. Please verify your connection or try again later.</p>
+                        <button 
+                          onClick={() => {
+                            setIsLoadingAnalytics(true);
+                            getAnalyticsSummary().then((data: any) => {
+                              setAnalyticsSummary(data);
+                              setIsLoadingAnalytics(false);
+                            });
+                          }}
+                          className="mt-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                        >
+                          Retry Loading
+                        </button>
+                      </div>
+                    )}
+
                     {!isLoadingAnalytics && analyticsSummary && (
                       (() => {
                         const data = (analyticsRange === '7' ? analyticsSummary?.summary7 : analyticsSummary?.summary30) || analyticsSummary || {};
