@@ -594,7 +594,11 @@ export default function App() {
                     onClick={() => {
                       setShowPromoPopup(false);
                       try { sessionStorage.setItem('dismissedPromotion', 'true'); } catch (e) {}
-                      handleNavigate(promotionSettings.ctaPage || 'contact');
+                      if (promotionSettings.ctaPage === 'external' && promotionSettings.externalLink) {
+                        window.open(promotionSettings.externalLink, '_blank', 'noopener,noreferrer');
+                      } else {
+                        handleNavigate(promotionSettings.ctaPage || 'contact');
+                      }
                     }}
                     className="w-full bg-brand-gold hover:bg-brand-gold-hover text-brand-navy font-display font-extrabold py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all cursor-pointer shadow-lg shadow-brand-gold/15 active:scale-[0.98] border border-brand-gold-hover/20 text-center block"
                   >

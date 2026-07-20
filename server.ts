@@ -29,15 +29,24 @@ const executeWithDbFallback = async <T>(operation: (dbInstance: Firestore) => Pr
     throw new Error('Database is not initialized.');
   }
 
+  const runWithTimeout = async (dbRef: Firestore) => {
+    return Promise.race([
+      operation(dbRef),
+      new Promise<T>((_, reject) => 
+        setTimeout(() => reject(new Error('Firestore operation timed out (3000ms)')), 3000)
+      )
+    ]);
+  };
+
   try {
-    return await operation(db);
+    return await runWithTimeout(db);
   } catch (err: any) {
     // If we get a NOT_FOUND error (code 5) and we are currently on '(default)', try switching to 'default'
     if (currentDbId === '(default)' && (err.code === 5 || (err.message && err.message.includes('NOT_FOUND')))) {
       console.log('⚠️ Firestore database (default) not found. Attempting to fall back to database "default"...');
       initDb(firebaseApp, 'default');
       // Retry the operation with the new db instance
-      return await operation(db);
+      return await runWithTimeout(db);
     }
     throw err;
   }

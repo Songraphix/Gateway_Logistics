@@ -347,7 +347,8 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
     imageUrl: '',
     delaySeconds: 5,
     ctaText: 'Inquire Now',
-    ctaPage: 'contact'
+    ctaPage: 'contact',
+    externalLink: ''
   });
 
   // Security settings state
@@ -1739,7 +1740,20 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                           <option value="services">Logistics Capabilities</option>
                           <option value="careers">Open Positions</option>
                           <option value="news">News & Bulletins</option>
+                          <option value="external">External Link (Custom URL)</option>
                         </select>
+                        {promoForm.ctaPage === 'external' && (
+                          <div className="pt-2">
+                            <input
+                              type="url"
+                              required
+                              value={promoForm.externalLink || ''}
+                              onChange={(e) => setPromoForm({ ...promoForm, externalLink: e.target.value })}
+                              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-brand-navy dark:text-white rounded-xl py-2.5 px-4 text-xs"
+                              placeholder="e.g. https://forms.google.com/..."
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1850,9 +1864,9 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
 
                     {!isLoadingAnalytics && analyticsSummary && (
                       (() => {
-                        const data = analyticsRange === '7' ? analyticsSummary.summary7 : analyticsSummary.summary30;
+                        const data = (analyticsRange === '7' ? analyticsSummary?.summary7 : analyticsSummary?.summary30) || analyticsSummary || {};
                         const timeline = data.timeline || [];
-                        const maxVal = Math.max(...timeline.map((p: any) => p.visitors), 1);
+                        const maxVal = Math.max(...timeline.map((p: any) => p.visitors || 0), 1);
                         
                         // Compute SVG Path points for visitors trend
                         const pathD = timeline.map((p: any, idx: number) => {
@@ -1908,7 +1922,7 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                                   <Users className="h-4 w-4 text-[#0084C2]" />
                                 </div>
                                 <div className="text-xl font-black font-display text-brand-navy dark:text-white">
-                                  {data.visitors.toLocaleString()}
+                                  {Number(data.visitors || 0).toLocaleString()}
                                 </div>
                                 <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium">Unique visitor sessions logged.</p>
                               </div>
@@ -1920,7 +1934,7 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                                   <Eye className="h-4 w-4 text-[#0084C2]" />
                                 </div>
                                 <div className="text-xl font-black font-display text-brand-navy dark:text-white">
-                                  {data.pageviews.toLocaleString()}
+                                  {Number(data.pageviews || 0).toLocaleString()}
                                 </div>
                                 <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium">Total screen clicks recorded.</p>
                               </div>
@@ -1932,7 +1946,7 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                                   <MessageSquare className="h-4 w-4 text-[#0084C2]" />
                                 </div>
                                 <div className="text-xl font-black font-display text-brand-navy dark:text-white">
-                                  {data.submissions.toLocaleString()}
+                                  {Number(data.submissions || 0).toLocaleString()}
                                 </div>
                                 <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium">Forms submitted by prospects.</p>
                               </div>
@@ -1944,7 +1958,7 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                                   <CheckCircle className="h-4 w-4 text-emerald-400" />
                                 </div>
                                 <div className="text-xl font-black font-display text-emerald-500 dark:text-emerald-400">
-                                  {data.conversionRate}%
+                                  {data.conversionRate || 0}%
                                 </div>
                                 <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium">Quote submission conversions.</p>
                               </div>
@@ -2063,7 +2077,7 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                                      {data.searches.map((s: any, idx: number) => (
+                                      {(data.searches || []).map((s: any, idx: number) => (
                                         <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-white/5">
                                           <td className="py-2.5 font-bold uppercase tracking-tight text-slate-700 dark:text-slate-300 font-mono text-[10px]">
                                             "{s.term}"
@@ -2073,7 +2087,7 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                                           </td>
                                         </tr>
                                       ))}
-                                      {data.searches.length === 0 && (
+                                      {(!data.searches || data.searches.length === 0) && (
                                         <tr>
                                           <td colSpan={2} className="py-8 text-center text-slate-400 text-xs font-semibold">No queries registered.</td>
                                         </tr>
@@ -2087,7 +2101,7 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                               <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-sm space-y-3">
                                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 pb-2 border-b border-slate-100 dark:border-white/5">Most Popular Articles & Bulletins</h4>
                                 <div className="space-y-2">
-                                  {data.articleReads.map((art: any, idx: number) => (
+                                  {(data.articleReads || []).map((art: any, idx: number) => (
                                     <div key={idx} className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-white/5 border-dashed last:border-0">
                                       <div className="max-w-[240px] truncate text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-tight">
                                         {art.articleId}
@@ -2098,7 +2112,7 @@ export default function AdminDashboard({ onNavigate }: { onNavigate: (page: Page
                                       </div>
                                     </div>
                                   ))}
-                                  {data.articleReads.length === 0 && (
+                                  {(!data.articleReads || data.articleReads.length === 0) && (
                                     <div className="text-center py-8 text-slate-400 text-xs font-semibold">No articles read metrics logged.</div>
                                   )}
                                 </div>
