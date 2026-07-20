@@ -9,6 +9,7 @@ import NetworkGraphic from './NetworkGraphic';
 import { useLanguage } from '../LanguageContext';
 import { motion } from 'motion/react';
 import { useMobileScrollExpand } from '../hooks/useMobileScrollExpand';
+import gatewayVideoUrl from '../../assets/Gateway Video.mp4';
 
 const fadeInUp = {
   initial: { opacity: 0, y: 30 },
@@ -251,6 +252,29 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Gateway Corporate Video Section */}
+      <section className="bg-slate-50 dark:bg-[#00091d] pb-4 pt-16">
+        <div className="mx-auto max-w-5xl px-6 md:px-12">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="relative rounded-3xl overflow-hidden shadow-2xl bg-black border border-slate-200 dark:border-white/10 group aspect-video"
+          >
+            <video 
+              src={gatewayVideoUrl}
+              controls
+              playsInline
+              preload="metadata"
+              className="w-full h-full object-cover"
+            >
+              Your browser does not support the video tag.
+            </video>
+          </motion.div>
         </div>
       </section>
 
